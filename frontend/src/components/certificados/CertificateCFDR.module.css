@@ -1,0 +1,277 @@
+/* ====================================================
+   Google Fonts — adicione ao index.css global:
+   @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap');
+==================================================== */
+
+/* ====================================================
+   PRINT — A4 landscape
+==================================================== */
+@media print {
+  @page { size: A4 landscape; margin: 0; }
+
+  body {
+    background: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .certificate {
+    box-shadow: none !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Oculta elementos fora do certificado ao imprimir */
+  .no-print { display: none !important; }
+}
+
+/* ====================================================
+   WRAPPER
+==================================================== */
+.certificateWrapper {
+  display: flex;
+  justify-content: center;
+}
+
+/* Classe auxiliar para a página do viewer */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 24px;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.infoBox {
+  background: #f0f4ff;
+  border: 1px solid #c7d4f0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 12px;
+  color: #333;
+  font-family: monospace;
+  line-height: 1.6;
+}
+
+.scrollArea {
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.certificateShell {
+  display: inline-block;
+}
+
+.footerNote {
+  font-size: 12px;
+  color: #888;
+  text-align: center;
+}
+
+/* ====================================================
+   CERTIFICATE — A4 landscape  297mm × 210mm
+   At 96dpi: 1122 × 794px
+==================================================== */
+.certificate {
+  width: 1122px;
+  height: 794px;
+  background: #f9f5f0;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 32px rgba(0, 0, 0, 0.25);
+  font-family: 'Montserrat', sans-serif;
+}
+
+/* ====================================================
+   HEADER BANNER
+==================================================== */
+.certHeader {
+  width: 100%;
+  height: 175px;
+  background: #e8621a;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+/* Decorative circles */
+.circle { position: absolute; border-radius: 50%; }
+.c1 { width: 180px; height: 180px; background: #f0a800; left: -50px; top: -50px; }
+.c2 { width: 120px; height: 120px; background: #2e7d32; left: 10px;  top: 60px; }
+.c3 { width:  80px; height:  80px; background: #f0a800; left: 100px; top: 110px; }
+
+/* Logo text block — left */
+.certLogo {
+  position: relative;
+  z-index: 2;
+  margin-left: 60px;
+  line-height: 1;
+}
+
+.line1 {
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.line2 {
+  font-size: 48px;
+  font-weight: 900;
+  color: #f0e000;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  line-height: 0.9;
+  margin-top: 2px;
+}
+
+/* Logo de Niterói Educação — topo direito */
+.certHeaderLogo {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  width: 340px;
+  height: auto;
+
+  mix-blend-mode: multiply;
+}
+
+/* ====================================================
+   FOOTER BAR
+==================================================== */
+.certFooterBar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 48px;
+  background: #e8621a;
+}
+
+/* ====================================================
+   BODY — entre header (175px) e footer (48px)
+==================================================== */
+.certBody {
+  position: absolute;
+  top: 175px;
+  bottom: 48px;
+  left: 0;
+  right: 0;
+  padding: 0 90px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  align-items: stretch;
+}
+
+/* Título "CERTIFICADO" */
+.certTitle {
+  text-align: center;
+  font-size: 46px;
+  font-weight: 900;
+  color: #2e7d32;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+/* Parágrafo do texto */
+.certText {
+  font-size: 17px;
+  line-height: 1.8;
+  color: #555;
+  font-weight: 400;
+  text-align: justify;
+}
+
+.certText strong,
+.highlight {
+  color: #2e7d32;
+  font-weight: 700;
+}
+
+/* ====================================================
+   PARTE DE BAIXO — Assinaturas + QR Code lado a lado
+==================================================== */
+.certBottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+/* ── Assinaturas ── */
+.certSignatures {
+  display: flex;
+  gap: 80px;
+}
+
+.signature {
+  text-align: center;
+}
+
+.signature::before {
+  content: '';
+  display: block;
+  width: 220px;
+  height: 1.5px;
+  background: #2e7d32;
+  margin: 0 auto 8px;
+}
+
+.sigName {
+  font-size: 14px;
+  font-weight: 700;
+  color: #2e7d32;
+}
+
+.sigRole {
+  font-size: 12px;
+  font-weight: 600;
+  color: #2e7d32;
+  margin-top: 2px;
+}
+
+/* ── QR Code ── */
+.certQr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding-bottom: 4px;
+}
+
+.certQrImage {
+  width: 90px;
+  height: 90px;
+  border: 1.5px solid #ccc;
+  border-radius: 6px;
+  display: block;
+}
+
+.certQrLabel {
+  font-size: 8px;
+  font-weight: 700;
+  color: #2e7d32;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: center;
+}
+
+.certQrHash {
+  font-size: 7px;
+  color: #999;
+  font-family: monospace;
+  text-align: center;
+  max-width: 100px;
+  word-break: break-all;
+  line-height: 1.2;
+}
