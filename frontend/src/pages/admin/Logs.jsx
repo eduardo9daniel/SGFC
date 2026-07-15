@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import PainelLayout from '../../components/PainelLayout';
 import api from '../../api';
 
@@ -119,6 +119,11 @@ export default function AdminLogs() {
   const [logSelecionado, setLogSelecionado] = useState(null);
   const [exportando, setExportando] = useState(false);
 
+  const scrollSuperiorRef = useRef(null);
+  const tabelaWrapperRef = useRef(null);
+  const tabelaRef = useRef(null);
+  const [larguraTabela, setLarguraTabela] = useState(0);
+
   useEffect(() => {
     const controller = new AbortController();
 
@@ -165,6 +170,31 @@ export default function AdminLogs() {
     return () => document.removeEventListener('keydown', fecharComEsc);
   }, [logSelecionado]);
 
+  useEffect(() => {
+    function atualizarLarguraTabela() {
+      if (tabelaRef.current) {
+        setLarguraTabela(tabelaRef.current.scrollWidth);
+      }
+    }
+
+    atualizarLarguraTabela();
+
+    const observer = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(atualizarLarguraTabela)
+      : null;
+
+    if (observer && tabelaRef.current) {
+      observer.observe(tabelaRef.current);
+    }
+
+    window.addEventListener('resize', atualizarLarguraTabela);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', atualizarLarguraTabela);
+    };
+  }, [logs, loading, porPagina]);
+
   const quantidadeFiltros = useMemo(() => {
     return Object.values(filtrosAplicados).filter(Boolean).length;
   }, [filtrosAplicados]);
@@ -189,6 +219,17 @@ export default function AdminLogs() {
     setFiltros(FILTROS_INICIAIS);
     setFiltrosAplicados(FILTROS_INICIAIS);
     setPagina(1);
+  }
+
+  function sincronizarRolagem(origemRef, destinoRef) {
+    const origem = origemRef.current;
+    const destino = destinoRef.current;
+
+    if (!origem || !destino) return;
+
+    if (destino.scrollLeft !== origem.scrollLeft) {
+      destino.scrollLeft = origem.scrollLeft;
+    }
   }
 
   async function exportarCsv() {
@@ -441,8 +482,24 @@ export default function AdminLogs() {
               </div>
             ) : (
               <>
-                <div className="tabela-wrapper logs-tabela-wrapper">
-                  <table className="tabela logs-tabela">
+                <div
+                  className="logs-scroll-superior"
+                  ref={scrollSuperiorRef}
+                  onScroll={() => sincronizarRolagem(scrollSuperiorRef, tabelaWrapperRef)}
+                  aria-label="Rolagem horizontal superior da tabela de logs"
+                >
+                  <div
+                    className="logs-scroll-superior-conteudo"
+                    style={{ width: `${Math.max(larguraTabela, 1)}px` }}
+                  />
+                </div>
+
+                <div
+                  className="tabela-wrapper logs-tabela-wrapper"
+                  ref={tabelaWrapperRef}
+                  onScroll={() => sincronizarRolagem(tabelaWrapperRef, scrollSuperiorRef)}
+                >
+                  <table className="tabela logs-tabela" ref={tabelaRef}>
                     <thead>
                       <tr>
                         <th>Registro</th>

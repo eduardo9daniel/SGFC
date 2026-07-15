@@ -3318,3 +3318,42 @@ h6 {
     padding-right: 18px;
   }
 }
+
+/* Rolagem horizontal superior da tabela de logs */
+.logs-scroll-superior {
+  width: 100%;
+  height: 18px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin-bottom: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--cinza-400) var(--cinza-100);
+}
+
+.logs-scroll-superior-conteudo {
+  height: 1px;
+}
+
+/* Padroniza as duas barras de rolagem */
+.logs-scroll-superior::-webkit-scrollbar,
+.logs-tabela-wrapper::-webkit-scrollbar {
+  height: 12px;
+}
+
+.logs-scroll-superior::-webkit-scrollbar-track,
+.logs-tabela-wrapper::-webkit-scrollbar-track {
+  background: var(--cinza-100);
+  border-radius: 10px;
+}
+
+.logs-scroll-superior::-webkit-scrollbar-thumb,
+.logs-tabela-wrapper::-webkit-scrollbar-thumb {
+  background: var(--cinza-400);
+  border: 2px solid var(--cinza-100);
+  border-radius: 10px;
+}
+
+.logs-scroll-superior::-webkit-scrollbar-thumb:hover,
+.logs-tabela-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--cinza-500);
+}
