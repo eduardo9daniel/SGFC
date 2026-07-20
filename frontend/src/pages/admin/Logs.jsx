@@ -293,7 +293,7 @@ export default function AdminLogs() {
       <div className="logs-admin">
         <header className="logs-header">
           <div>
-            <h2 className="logs-titulo">Central de logs e auditoria</h2>
+            <h2 className="logs-titulo">Central de logs</h2>
             <p className="logs-subtitulo">
               Consulte acessos e operações registradas para acompanhar o uso do sistema.
             </p>
