@@ -211,16 +211,31 @@
 /* ── Assinaturas ── */
 .certSignatures {
   display: flex;
-  gap: 80px;
+  gap: 56px;
+  align-items: flex-end;
 }
 
 .signature {
+  width: 240px;
   text-align: center;
 }
 
-.signature::before {
-  content: '';
+.sigImageArea {
+  height: 78px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  margin-bottom: -3px;
+}
+
+.sigImage {
   display: block;
+  max-width: 210px;
+  max-height: 76px;
+  object-fit: contain;
+}
+
+.sigLine {
   width: 220px;
   height: 1.5px;
   background: #2e7d32;
@@ -274,4 +289,207 @@
   max-width: 100px;
   word-break: break-all;
   line-height: 1.2;
+}
+/* ====================================================
+   FRENTE E VERSO
+==================================================== */
+.certificateWrapper {
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+}
+
+.certificatePage {
+  page-break-after: always;
+  break-after: page;
+}
+
+.certificatePage:last-child {
+  page-break-after: auto;
+  break-after: auto;
+}
+
+.certificateBack {
+  background: #f9f5f0;
+}
+
+.backHeader {
+  width: 100%;
+  height: 138px;
+  background: #e8621a;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.backMiniLogo {
+  position: absolute;
+  left: 42px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  color: #fff;
+  font-size: 17px;
+  line-height: 1.05;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.backMiniLogo strong {
+  color: #f0e000;
+  font-size: 28px;
+}
+
+.backTitle {
+  position: relative;
+  z-index: 2;
+  color: #fff;
+  text-align: center;
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.backBody {
+  position: absolute;
+  top: 138px;
+  bottom: 48px;
+  left: 0;
+  right: 0;
+  padding: 30px 54px 22px;
+  display: grid;
+  grid-template-columns: 330px 1fr;
+  gap: 34px;
+}
+
+.trainingData {
+  align-self: stretch;
+  background: #fff;
+  border: 1px solid #eadfd5;
+  border-radius: 14px;
+  padding: 22px 22px 18px;
+}
+
+.trainingData h2,
+.programContent h2 {
+  color: #2e7d32;
+  font-size: 18px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 16px;
+}
+
+.dataItem {
+  margin-bottom: 12px;
+}
+
+.dataItem:last-child {
+  margin-bottom: 0;
+}
+
+.dataLabel {
+  display: block;
+  color: #e8621a;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 3px;
+}
+
+.dataValue {
+  color: #414141;
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+.dataObjective {
+  font-weight: 500;
+  text-align: justify;
+}
+
+.programContent {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.programList {
+  list-style: disc;
+  column-count: 2;
+  column-gap: 26px;
+  padding: 0 0 0 18px;
+  margin: 0;
+}
+
+.programList li {
+  color: #4d4d4d;
+  font-size: 12px;
+  line-height: 1.34;
+  font-weight: 500;
+  break-inside: avoid;
+  margin-bottom: 8px;
+}
+
+.programList li::marker {
+  color: #e8621a;
+  font-size: 15px;
+}
+
+.programListMedium li {
+  margin-bottom: 6px;
+}
+
+.programListMedium li {
+  font-size: 10.5px;
+  line-height: 1.27;
+}
+
+.programListCompact {
+  column-gap: 20px;
+}
+
+.programListCompact li {
+  font-size: 9px;
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+
+.programListCompact li::marker {
+  font-size: 12px;
+}
+
+.programEmpty {
+  border: 1px dashed #d7c9bd;
+  border-radius: 10px;
+  padding: 18px;
+  color: #777;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.backValidation {
+  position: absolute;
+  right: 55px;
+  bottom: 8px;
+  z-index: 2;
+  color: #fff;
+  font-size: 7px;
+  font-family: monospace;
+}
+
+@media print {
+  .certificateWrapper {
+    display: block;
+  }
+
+  .certificatePage {
+    box-shadow: none !important;
+    margin: 0 !important;
+  }
 }

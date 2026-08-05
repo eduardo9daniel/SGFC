@@ -3,6 +3,7 @@ import { HeaderPublico, FooterPublico } from '../../components/PublicLayout';
 import { Spinner } from '../../components/ui';
 import api from '../../api';
 import '../../cfdr_home_styles.css';
+import '../../styles/acervoLivros.css';
 
 const naturezas = [
   '',
@@ -92,7 +93,7 @@ export default function PesquisadoresNestPublico() {
               type="text"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              placeholder="Digite nome, título, filiação ou palavra-chave"
+              placeholder="Digite referência, nome, título, filiação ou palavra-chave"
               className="input"
             />
 
@@ -139,7 +140,14 @@ export default function PesquisadoresNestPublico() {
                         {item.natureza_pesquisa || 'Pesquisa'}
                       </p>
 
-                      <h3>{item.nome}</h3>
+                      <h3>
+                        {item.codigo_referencia && (
+                          <span className="acervo-referencia">
+                            {item.codigo_referencia}
+                          </span>
+                        )}
+                        {item.nome}
+                      </h3>
 
                       {item.titulo_trabalho && (
                         <p>

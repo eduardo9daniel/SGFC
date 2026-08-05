@@ -3,10 +3,16 @@ import { Link } from 'react-router-dom';
 import PainelLayout from '../../components/PainelLayout';
 import { Spinner } from '../../components/ui';
 import api from '../../api';
+import { useAuth } from '../../context/AuthContext';
+import { criarRotasBiblioteca } from '../../utils/rotasBiblioteca';
+import '../../styles/acervoLivros.css';
 
 export default function BibliotecaPainel() {
+  const { user } = useAuth();
+  const rotas = criarRotasBiblioteca(user?.tipo);
   const [itens, setItens] = useState([]);
   const [pesquisas, setPesquisas] = useState([]);
+  const [livros, setLivros] = useState([]);
   const [loading, setLoading] = useState(true);
   const [visualizacao, setVisualizacao] = useState(null);
 
@@ -20,11 +26,15 @@ export default function BibliotecaPainel() {
     try {
       setLoading(true);
 
-      const [respostaBiblioteca, respostaPesquisas] =
-        await Promise.all([
-          api.get('/admin/biblioteca'),
-          api.get('/admin/pesquisadores-nest')
-        ]);
+      const [
+        respostaBiblioteca,
+        respostaPesquisas,
+        respostaLivros
+      ] = await Promise.all([
+        api.get('/admin/biblioteca'),
+        api.get('/admin/pesquisadores-nest'),
+        api.get('/admin/biblioteca/livros')
+      ]);
 
       const dadosBiblioteca =
         respostaBiblioteca.data.data ||
@@ -36,8 +46,14 @@ export default function BibliotecaPainel() {
         respostaPesquisas.data ||
         [];
 
+      const dadosLivros =
+        respostaLivros.data.data ||
+        respostaLivros.data ||
+        [];
+
       setItens(dadosBiblioteca);
       setPesquisas(dadosPesquisas);
+      setLivros(dadosLivros);
 
       setPaginaItens(1);
       setPaginaPesquisas(1);
@@ -49,6 +65,7 @@ export default function BibliotecaPainel() {
 
       setItens([]);
       setPesquisas([]);
+      setLivros([]);
     } finally {
       setLoading(false);
     }
@@ -172,11 +189,30 @@ export default function BibliotecaPainel() {
     };
   }, [pesquisas]);
 
+  const resumoLivros = useMemo(() => {
+    const total = livros.length;
+
+    const disponiveis = livros.filter(
+      item => item.status === 'disponivel'
+    ).length;
+
+    const emprestados = livros.filter(
+      item => item.status === 'emprestado'
+    ).length;
+
+    return {
+      total,
+      disponiveis,
+      emprestados
+    };
+  }, [livros]);
+
   const resumoGeral = useMemo(() => {
     return {
       total:
         resumoBiblioteca.total +
-        resumoPesquisas.total,
+        resumoPesquisas.total +
+        resumoLivros.total,
 
       comDocumento:
         resumoBiblioteca.comDocumento +
@@ -186,7 +222,11 @@ export default function BibliotecaPainel() {
         resumoBiblioteca.comLattes +
         resumoPesquisas.comLattes
     };
-  }, [resumoBiblioteca, resumoPesquisas]);
+  }, [
+    resumoBiblioteca,
+    resumoPesquisas,
+    resumoLivros
+  ]);
 
   function criarPaginacao(lista, paginaAtual) {
     const totalPaginas = Math.ceil(
@@ -348,7 +388,7 @@ export default function BibliotecaPainel() {
               fontWeight: 800
             }}
           >
-            Biblioteca e Pesquisas
+            Biblioteca 
           </h2>
 
           <p
@@ -357,8 +397,7 @@ export default function BibliotecaPainel() {
               fontSize: '.9rem'
             }}
           >
-            Visão geral dos trabalhos acadêmicos e
-            pesquisas cadastrados no sistema.
+            Visão geral dos trabalhos acadêmicos, pesquisas e livros cadastrados no sistema.
           </p>
         </div>
 
@@ -369,17 +408,10 @@ export default function BibliotecaPainel() {
           }}
         >
           <Link
-            to="/admin/biblioteca"
+            to={rotas.gerenciamento}
             className="btn btn-outline"
           >
             Gerenciar Biblioteca
-          </Link>
-
-          <Link
-            to="/admin/biblioteca?aba=pesquisas"
-            className="btn btn-outline"
-          >
-            Gerenciar Pesquisas
           </Link>
         </div>
       </div>
@@ -400,7 +432,7 @@ export default function BibliotecaPainel() {
             </div>
 
             <div className="stat-detalhe">
-              Total de Itens da biblioteca e pesquisas
+              Total de itens, pesquisas e livros
             </div>
           </div>
         </div>
@@ -444,6 +476,35 @@ export default function BibliotecaPainel() {
             </div>
           </div>
         </div>
+
+        <Link
+          to={rotas.acervo}
+          className="stat-card dashboard-card-sombra"
+          style={{
+            color: 'inherit',
+            textDecoration: 'none'
+          }}
+          title="Abrir o Acervo de Livros"
+        >
+          <div className="stat-icone verde">
+            📚
+          </div>
+
+          <div>
+            <div className="stat-valor">
+              {resumoLivros.total}
+            </div>
+
+            <div className="stat-label">
+              Acervo de Livros
+            </div>
+
+            <div className="stat-detalhe">
+              {resumoLivros.disponiveis} disponíveis ·{' '}
+              {resumoLivros.emprestados} emprestados
+            </div>
+          </div>
+        </Link>
       </div>
 
       <div className="dashboard-grid-resumo">
@@ -526,31 +587,31 @@ export default function BibliotecaPainel() {
 
           <div className="acoes-rapidas">
             <Link
-              to="/admin/biblioteca/novo"
+              to={rotas.novoItem}
               className="btn btn-primario"
             >
               + Cadastrar Item
             </Link>
 
             <Link
-              to="/admin/biblioteca?aba=pesquisas&novo=1"
+              to={rotas.novaPesquisa}
               className="btn btn-primario"
             >
               + Cadastrar Pesquisa
             </Link>
 
             <Link
-              to="/admin/biblioteca"
-              className="btn btn-outline"
+              to={rotas.novoLivro}
+              className="btn btn-primario"
             >
-              📖 Gerenciar Biblioteca
+              + Cadastrar Livro
             </Link>
 
             <Link
-              to="/admin/biblioteca?aba=pesquisas"
+              to={rotas.gerenciamento}
               className="btn btn-outline"
             >
-              🔎 Gerenciar Pesquisas
+              📖 Gerenciar Biblioteca
             </Link>
 
             <Link
@@ -576,10 +637,10 @@ export default function BibliotecaPainel() {
             📚
           </span>
 
-          Itens cadastrados
+          Itens da biblioteca cadastrados
 
           <Link
-            to="/admin/biblioteca"
+            to={rotas.gerenciamento}
             className="link-card"
           >
             Gerenciar →
@@ -621,6 +682,12 @@ export default function BibliotecaPainel() {
                             maxWidth: 280
                           }}
                         >
+                          {item.codigo_referencia && (
+                            <span className="acervo-referencia">
+                              {item.codigo_referencia}
+                            </span>
+                          )}
+
                           {item.titulo}
                         </td>
 
@@ -673,7 +740,7 @@ export default function BibliotecaPainel() {
                             </button>
 
                             <Link
-                              to={`/admin/biblioteca/novo?id=${item.id}`}
+                              to={`${rotas.novoItem}?id=${item.id}`}
                               className="btn btn-outline btn-sm"
                             >
                               Editar
@@ -710,7 +777,7 @@ export default function BibliotecaPainel() {
           Pesquisas cadastradas
 
           <Link
-            to="/admin/biblioteca?aba=pesquisas"
+            to={rotas.pesquisas}
             className="link-card"
           >
             Gerenciar →
@@ -754,6 +821,12 @@ export default function BibliotecaPainel() {
                             maxWidth: 320
                           }}
                         >
+                          {item.codigo_referencia && (
+                            <span className="acervo-referencia">
+                              {item.codigo_referencia}
+                            </span>
+                          )}
+
                           {item.titulo_trabalho || '-'}
                         </td>
 

@@ -586,27 +586,41 @@ export default function AdminUsuarios() {
     }
   }
 
-  async function resetarSenha(id) {
-    if (
-      !confirm(
-        'Resetar a senha? O usuário precisará redefinir a senha no próximo acesso.'
-      )
-    ) {
-      return;
-    }
+  async function resetarSenha(usuario) {
+  const tipoUsuario =
+    usuario.tipo_usuario === 'admin'
+      ? 'Admin'
+      : usuario.tipo_usuario;
 
-    try {
-      const { data } = await api.put('/usuarios/' + id + '/resetar-senha');
-      toast(
-        'Nova senha provisória: ' + data.novaSenha + ' — informe ao usuário.',
-        'aviso'
-      );
-      carregar(pagina);
-    } catch {
-      toast('Erro ao resetar.', 'erro');
-    }
+  const confirmou = confirm(
+    `Deseja redefinir a senha de "${usuario.nome_completo}" (${tipoUsuario})?`
+  );
+
+  if (!confirmou) {
+    return;
   }
 
+  try {
+    const { data } = await api.put(
+      `/usuarios/${usuario.id}/resetar-senha`
+    );
+
+    alert(
+      `Senha redefinida com sucesso!\n\n` +
+      `Usuário: ${usuario.nome_completo}\n` +
+      `Nova senha: ${data.novaSenha}\n\n` +
+      `Copie e informe esta senha ao usuário.`
+    );
+
+    carregar(pagina);
+  } catch (err) {
+    toast(
+      err.response?.data?.erro ||
+      'Erro ao redefinir a senha.',
+      'erro'
+    );
+  }
+}
   async function excluirUsuario(id, nome) {
     const confirmar = confirm(
       `Tem certeza que deseja excluir o usuário "${nome}"?\n\nEssa ação não poderá ser desfeita.`
@@ -619,11 +633,16 @@ export default function AdminUsuarios() {
       toast('Usuário excluído com sucesso.', 'sucesso');
 
       const proximaPagina =
-        usuarios.length === 1 && pagina > 1 ? pagina - 1 : pagina;
+        usuarios.length === 1 && pagina > 1
+          ? pagina - 1
+          : pagina;
 
       carregar(proximaPagina);
     } catch (err) {
-      toast(err.response?.data?.erro || 'Erro ao excluir usuário.', 'erro');
+      toast(
+        err.response?.data?.erro || 'Erro ao excluir usuário.',
+        'erro'
+      );
     }
   }
 
@@ -652,7 +671,10 @@ export default function AdminUsuarios() {
           </p>
         </div>
 
-        <button className="btn btn-primario" onClick={() => setModalCriar(true)}>
+        <button
+          className="btn btn-primario"
+          onClick={() => setModalCriar(true)}
+        >
           ➕ Criar Usuário
         </button>
       </div>
@@ -666,7 +688,14 @@ export default function AdminUsuarios() {
             alignItems: 'flex-end'
           }}
         >
-          <div className="campo" style={{ marginBottom: 0, flex: 1, minWidth: 200 }}>
+          <div
+            className="campo"
+            style={{
+              marginBottom: 0,
+              flex: 1,
+              minWidth: 200
+            }}
+          >
             <label>Buscar</label>
             <input
               type="text"
@@ -677,9 +706,15 @@ export default function AdminUsuarios() {
             />
           </div>
 
-          <div className="campo" style={{ marginBottom: 0, minWidth: 160 }}>
+          <div
+            className="campo"
+            style={{ marginBottom: 0, minWidth: 160 }}
+          >
             <label>Tipo</label>
-            <select value={tipo} onChange={e => setTipo(e.target.value)}>
+            <select
+              value={tipo}
+              onChange={e => setTipo(e.target.value)}
+            >
               <option value="">Todos</option>
               <option value="admin">Admin</option>
               <option value="coordenador">Coordenador</option>
@@ -688,7 +723,10 @@ export default function AdminUsuarios() {
             </select>
           </div>
 
-          <div className="campo" style={{ marginBottom: 0, minWidth: 190 }}>
+          <div
+            className="campo"
+            style={{ marginBottom: 0, minWidth: 190 }}
+          >
             <label>Região</label>
             <select
               value={regiaoFiltro}
@@ -704,11 +742,17 @@ export default function AdminUsuarios() {
             </select>
           </div>
 
-          <button className="btn btn-primario" onClick={() => carregar(1)}>
+          <button
+            className="btn btn-primario"
+            onClick={() => carregar(1)}
+          >
             Filtrar
           </button>
 
-          <button className="btn btn-outline" onClick={limparFiltros}>
+          <button
+            className="btn btn-outline"
+            onClick={limparFiltros}
+          >
             Limpar
           </button>
         </div>
@@ -744,7 +788,12 @@ export default function AdminUsuarios() {
                 <tbody>
                   {usuarios.map(u => (
                     <tr key={u.id}>
-                      <td style={{ color: 'var(--cinza-500)', fontSize: '.82rem' }}>
+                      <td
+                        style={{
+                          color: 'var(--cinza-500)',
+                          fontSize: '.82rem'
+                        }}
+                      >
                         {u.id}
                       </td>
 
@@ -773,17 +822,23 @@ export default function AdminUsuarios() {
                           style={{
                             fontWeight: 700,
                             fontSize: '.82rem',
-                            color: u.primeiro_acesso ? '#b26a00' : 'var(--verde)'
+                            color: u.primeiro_acesso
+                              ? '#b26a00'
+                              : 'var(--verde)'
                           }}
                         >
-                          {u.primeiro_acesso ? 'Pendente' : 'Concluído'}
+                          {u.primeiro_acesso
+                            ? 'Pendente'
+                            : 'Concluído'}
                         </span>
                       </td>
 
                       <td>
                         <span
                           style={{
-                            color: u.status ? 'var(--verde)' : 'var(--cor-perigo)',
+                            color: u.status
+                              ? 'var(--verde)'
+                              : 'var(--cor-perigo)',
                             fontWeight: 700,
                             fontSize: '.85rem'
                           }}
@@ -797,27 +852,35 @@ export default function AdminUsuarios() {
                       </td>
 
                       <td>
-                        {u.tipo_usuario !== 'admin' && (
-                          <div className="d-flex gap-8 flex-wrap">
+                        <div className="d-flex gap-8 flex-wrap">
+                          {u.tipo_usuario !== 'admin' && (
                             <button
                               className={
                                 'btn btn-sm ' +
-                                (u.status ? 'btn-outline' : 'btn-secundario')
+                                (
+                                  u.status
+                                    ? 'btn-outline'
+                                    : 'btn-secundario'
+                                )
                               }
                               onClick={() => toggleStatus(u.id)}
                             >
-                              {u.status ? '🔴 Desativar' : '🟢 Ativar'}
+                              {u.status
+                                ? '🔴 Desativar'
+                                : '🟢 Ativar'}
                             </button>
+                          )}
 
-                            <button
-                              className="btn btn-outline btn-sm"
-                              onClick={() => resetarSenha(u.id)}
-                              title="Resetar senha"
-                            >
-                              🔑
-                            </button>
+                          <button
+                            className="btn btn-outline btn-sm"
+                            onClick={() => resetarSenha(u)}
+                            title={`Redefinir senha de ${u.nome_completo}`}
+                          >
+                            🔑 Redefinir senha
+                          </button>
 
-                            {u.tipo_usuario === 'participante' && u.status === 1 && (
+                          {u.tipo_usuario === 'participante' &&
+                            u.status === 1 && (
                               <button
                                 className="btn btn-sm btn-outline"
                                 onClick={() =>
@@ -831,19 +894,26 @@ export default function AdminUsuarios() {
                               </button>
                             )}
 
+                          {u.tipo_usuario !== 'admin' && (
                             <button
                               className="btn btn-sm"
-                              onClick={() => excluirUsuario(u.id, u.nome_completo)}
+                              onClick={() =>
+                                excluirUsuario(
+                                  u.id,
+                                  u.nome_completo
+                                )
+                              }
                               style={{
                                 background: 'var(--cor-perigo)',
                                 color: 'white',
-                                border: '1px solid var(--cor-perigo)'
+                                border:
+                                  '1px solid var(--cor-perigo)'
                               }}
                             >
                               🗑 Excluir
                             </button>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -862,11 +932,19 @@ export default function AdminUsuarios() {
                 flexWrap: 'wrap'
               }}
             >
-              {Array.from({ length: totalPaginas }, (_, i) => i + 1).map(p => (
+              {Array.from(
+                { length: totalPaginas },
+                (_, i) => i + 1
+              ).map(p => (
                 <button
                   key={p}
                   className={
-                    'btn btn-sm ' + (p === pagina ? 'btn-primario' : 'btn-outline')
+                    'btn btn-sm ' +
+                    (
+                      p === pagina
+                        ? 'btn-primario'
+                        : 'btn-outline'
+                    )
                   }
                   onClick={() => carregar(p)}
                 >

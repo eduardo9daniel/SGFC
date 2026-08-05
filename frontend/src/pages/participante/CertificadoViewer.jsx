@@ -7,106 +7,150 @@
 
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+
 import PainelLayout from '../../components/PainelLayout';
 import { Spinner } from '../../components/ui';
 import api from '../../api';
 import CertificateCFDR from '../../components/certificados/CertificateCFDR';
 import styles from '../../components/certificados/CertificateCFDR.module.css';
 
-// ─── Helpers de data ─────────────────────────────────────────────────────────
-const MESES = ['', 'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
-               'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const MESES = [
+  '',
+  'janeiro',
+  'fevereiro',
+  'março',
+  'abril',
+  'maio',
+  'junho',
+  'julho',
+  'agosto',
+  'setembro',
+  'outubro',
+  'novembro',
+  'dezembro'
+];
 
 function mesExtenso(dataIso) {
   if (!dataIso) return '—';
-  const m = parseInt(String(dataIso).slice(5, 7), 10);
-  return MESES[m] || '—';
+  const mes = parseInt(String(dataIso).slice(5, 7), 10);
+  return MESES[mes] || '—';
 }
-function diaStr(dataIso)  { return dataIso ? String(dataIso).slice(8, 10) : '—'; }
-function anoStr(dataIso)  { return dataIso ? String(dataIso).slice(0, 4)  : '—'; }
 
-// ─── Componente ──────────────────────────────────────────────────────────────
+function diaStr(dataIso) {
+  return dataIso ? String(dataIso).slice(8, 10) : '—';
+}
+
+function anoStr(dataIso) {
+  return dataIso ? String(dataIso).slice(0, 4) : '—';
+}
+
 export default function CertificadoViewer() {
   const { id } = useParams();
 
-  const [cert,         setCert]         = useState(null);
-  const [qrDataUrl,    setQrDataUrl]    = useState(null);   // ← QR Code
-  const [loading,      setLoading]      = useState(true);
-  const [baixando,     setBaixando]     = useState(false);
-  const [erro,         setErro]         = useState('');
+  const [cert, setCert] = useState(null);
+  const [qrDataUrl, setQrDataUrl] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [baixando, setBaixando] = useState(false);
+  const [erro, setErro] = useState('');
 
-  // ── Busca certificado + QR Code ──────────────────────────────────────────
   useEffect(() => {
-    (async () => {
+    let ativo = true;
+
+    async function carregar() {
       try {
-        // 1. Lista certificados do participante
         const { data } = await api.get('/certificados/meus');
-        const found = data.data.find((item) => String(item.id) === String(id));
+        const encontrado = (data.data || []).find(
+          item => String(item.id) === String(id)
+        );
 
-        if (!found) { setErro('Certificado não encontrado.'); return; }
-
-        setCert(found);
-
-        // 2. Busca o QR Code para este certificado
-        try {
-          const qrRes = await api.get(`/certificados/${found.id}/qrcode`);
-          if (qrRes.data?.qr_code_data_url) {
-            setQrDataUrl(qrRes.data.qr_code_data_url);
-          }
-        } catch (qrErr) {
-          console.warn('Não foi possível carregar o QR Code:', qrErr.message);
-          // Não bloqueia — certificado exibe sem QR
+        if (!encontrado) {
+          if (ativo) setErro('Certificado não encontrado.');
+          return;
         }
 
+        if (ativo) setCert(encontrado);
+
+        try {
+          const respostaQr = await api.get(
+            `/certificados/${encontrado.id}/qrcode`
+          );
+
+          if (ativo && respostaQr.data?.qr_code_data_url) {
+            setQrDataUrl(respostaQr.data.qr_code_data_url);
+          }
+        } catch (erroQr) {
+          console.warn(
+            'Não foi possível carregar o QR Code:',
+            erroQr.message
+          );
+        }
       } catch (error) {
         console.error('Erro ao carregar certificado:', error);
-        setErro('Erro ao carregar certificado.');
+        if (ativo) setErro('Erro ao carregar certificado.');
       } finally {
-        setLoading(false);
+        if (ativo) setLoading(false);
       }
-    })();
+    }
+
+    carregar();
+
+    return () => {
+      ativo = false;
+    };
   }, [id]);
 
-  // ── Download PDF (via backend com Puppeteer) ─────────────────────────────
   async function baixarPDF() {
     if (!cert) return;
-    setBaixando(true);
-    try {
-      // Tenta pelo hash_unico primeiro (mais estável), depois pelo id
-      const tentativas = [
-        cert.hash_unico && `/certificados/${cert.hash_unico}/pdf`,
-        `/certificados/${cert.id}/pdf`,
-        cert.codigo_validacao && `/certificados/${cert.codigo_validacao}/pdf`,
-      ].filter(Boolean);
 
-      let response = null;
-      for (const endpoint of tentativas) {
-        try {
-          const r = await api.get(endpoint, { responseType: 'blob', timeout: 30000 });
-          if (r.data?.size > 0) { response = r; break; }
-        } catch { /* tenta próximo */ }
+    setBaixando(true);
+
+    try {
+      const codigo = cert.hash_unico || cert.codigo_validacao;
+
+      if (!codigo) {
+        throw new Error(
+          'O certificado não possui código de validação.'
+        );
       }
 
-      if (!response) throw new Error('Nenhum endpoint de PDF respondeu.');
+      const response = await api.get(
+        `/certificados/${codigo}/pdf`,
+        {
+          responseType: 'blob',
+          timeout: 30000
+        }
+      );
 
-      const url  = URL.createObjectURL(response.data);
+      if (!response.data?.size) {
+        throw new Error('O servidor retornou um PDF vazio.');
+      }
+
+      const url = URL.createObjectURL(response.data);
       const link = document.createElement('a');
-      link.href     = url;
-      link.download = `Certificado_${(cert.nome_completo || 'certificado').replace(/\s+/g, '_')}.pdf`;
+
+      link.href = url;
+      link.download = `Certificado_${(
+        cert.nome_completo || 'certificado'
+      ).replace(/\s+/g, '_')}.pdf`;
+
       document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
+      link.remove();
       URL.revokeObjectURL(url);
-
     } catch (error) {
       console.error('Erro ao baixar PDF:', error);
-      alert(`Erro ao gerar o PDF: ${error.message}`);
+
+      const mensagem =
+        error.response?.data?.erro ||
+        error.message ||
+        'Erro desconhecido.';
+
+      window.alert(`Erro ao gerar o PDF: ${mensagem}`);
     } finally {
       setBaixando(false);
     }
   }
 
-  // ── Estados de carregamento / erro ───────────────────────────────────────
   if (loading) {
     return (
       <PainelLayout titulo="Certificado">
@@ -121,7 +165,12 @@ export default function CertificadoViewer() {
         <div className="vazio">
           <div className="vazio-icone">❌</div>
           <p>{erro}</p>
-          <Link to="/participante/certificados" className="btn btn-primario" style={{ marginTop: 16 }}>
+
+          <Link
+            to="/participante/certificados"
+            className="btn btn-primario"
+            style={{ marginTop: 16 }}
+          >
             Voltar para meus certificados
           </Link>
         </div>
@@ -129,57 +178,74 @@ export default function CertificadoViewer() {
     );
   }
 
-  const horas = cert.carga_horaria_cursada || cert.carga_horaria;
+  const horas =
+    cert.carga_horaria_cursada || cert.carga_horaria;
 
-  // ── Render ───────────────────────────────────────────────────────────────
   return (
     <PainelLayout titulo="Meu Certificado">
       <div className={styles.page}>
-
-        {/* Barra de ações */}
         <div className={styles.actions}>
-          <button className="btn btn-primario" onClick={() => window.print()}>
+          <button
+            type="button"
+            className="btn btn-primario"
+            onClick={() => window.print()}
+          >
             🖨 Imprimir
           </button>
 
           <button
+            type="button"
             className="btn btn-secundario"
             onClick={baixarPDF}
             disabled={baixando}
           >
-            {baixando ? '⏳ Gerando PDF…' : '⬇ Baixar PDF oficial'}
+            {baixando
+              ? '⏳ Gerando PDF…'
+              : '⬇ Baixar PDF oficial'}
           </button>
 
-          <a
-            href={`/validar/${cert.hash_unico}`}
-            target="_blank"
-            rel="noreferrer"
+          {cert.hash_unico && (
+            <a
+              href={`/validar/${cert.hash_unico}`}
+              target="_blank"
+              rel="noreferrer"
+              className="btn btn-secundario"
+            >
+              🔗 Página de validação
+            </a>
+          )}
+
+          <Link
+            to="/participante/certificados"
             className="btn btn-secundario"
           >
-            🔗 Página de validação
-          </a>
-
-          <Link to="/participante/certificados" className="btn btn-secundario">
             ← Voltar
           </Link>
         </div>
 
-        {/* Info do certificado */}
         <div className={styles.infoBox}>
-          <strong>Dados do certificado:</strong><br />
-          ID: {cert.id} &nbsp;|&nbsp;
-          Código: {cert.codigo_validacao || 'N/A'} &nbsp;|&nbsp;
-          Status: {cert.status}<br />
-          Hash: {cert.hash_unico}<br />
+          <strong>Dados do certificado:</strong>
+          <br />
+          ID: {cert.id} &nbsp;|&nbsp; Código:{' '}
+          {cert.codigo_validacao || 'N/A'} &nbsp;|&nbsp; Status:{' '}
+          {cert.status}
+          <br />
+          Hash: {cert.hash_unico || 'N/A'}
+          <br />
           Formação: {cert.titulo}
+
           {!qrDataUrl && (
-            <span style={{ color: '#c0392b', marginLeft: 12 }}>
-              ⚠ QR Code não disponível — verifique se o certificado foi emitido pelo admin.
+            <span
+              style={{
+                color: '#c0392b',
+                marginLeft: 12
+              }}
+            >
+              ⚠ QR Code não disponível.
             </span>
           )}
         </div>
 
-        {/* Preview do certificado (horizontal scroll em telas pequenas) */}
         <div className={styles.scrollArea}>
           <div className={styles.certificateShell}>
             <CertificateCFDR
@@ -189,17 +255,17 @@ export default function CertificadoViewer() {
               day={diaStr(cert.data_fim)}
               month={mesExtenso(cert.data_fim)}
               year={anoStr(cert.data_fim)}
-              workloadHours={String(horas)}
-              qrCodeDataUrl={qrDataUrl}          /* ← QR Code */
-              hashUnico={cert.hash_unico}        /* ← hash curto abaixo do QR */
+              workloadHours={String(horas || '')}
+              qrCodeDataUrl={qrDataUrl}
+              hashUnico={cert.hash_unico}
             />
           </div>
         </div>
 
         <p className={styles.footerNote}>
-          Preview em A4 horizontal — use "Imprimir" ou "Baixar PDF oficial" para salvar.
+          Preview em A4 horizontal — use “Imprimir” ou “Baixar PDF
+          oficial” para salvar.
         </p>
-
       </div>
     </PainelLayout>
   );

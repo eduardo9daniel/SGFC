@@ -34,7 +34,13 @@ export default function MinhasPropostas() {
     <PainelLayout titulo="Minhas Propostas">
       <div className="mb-24">
         <h2>Minhas propostas de formação</h2>
-        <p style={{ color: 'var(--cinza-600)', fontSize: '.9rem' }}>
+
+        <p
+          style={{
+            color: 'var(--cinza-600)',
+            fontSize: '.9rem'
+          }}
+        >
           Acompanhe o status das propostas enviadas ao coordenador.
         </p>
       </div>
@@ -48,24 +54,52 @@ export default function MinhasPropostas() {
                 <th>Data</th>
                 <th>Carga</th>
                 <th>Status</th>
+                <th>OBS do coordenador</th>
                 <th>Justificativa</th>
               </tr>
             </thead>
 
             <tbody>
-              {propostas.map(p => (
-                <tr key={p.id}>
-                  <td>{p.titulo}</td>
-                  <td>{p.data_encontro?.slice(0, 10)}</td>
-                  <td>{p.carga_horaria}h</td>
-                  <td>{p.status}</td>
-                  <td>{p.justificativa_recusa || '—'}</td>
+              {propostas.map((proposta) => (
+                <tr key={proposta.id}>
+                  <td>{proposta.titulo}</td>
+
+                  <td>
+                    {proposta.data_encontro?.slice(0, 10)}
+                  </td>
+
+                  <td>
+                    {proposta.carga_horaria}h
+                  </td>
+
+                  <td>
+                    {proposta.status}
+                  </td>
+
+                  <td>
+                    <div
+                      style={{
+                        minWidth: '220px',
+                        maxWidth: '360px',
+                        whiteSpace: 'pre-wrap',
+                        overflowWrap: 'anywhere'
+                      }}
+                    >
+                      {proposta.observacoes || '—'}
+                    </div>
+                  </td>
+
+                  <td>
+                    {proposta.justificativa_recusa || '—'}
+                  </td>
                 </tr>
               ))}
 
               {propostas.length === 0 && (
                 <tr>
-                  <td colSpan="5">Nenhuma proposta enviada.</td>
+                  <td colSpan="6">
+                    Nenhuma proposta enviada.
+                  </td>
                 </tr>
               )}
             </tbody>

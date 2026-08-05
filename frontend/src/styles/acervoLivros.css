@@ -1,0 +1,267 @@
+.acervo-filtros {
+  display: grid;
+  grid-template-columns: minmax(220px, 2fr) minmax(170px, 1fr) minmax(170px, 1fr) auto auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 24px;
+}
+
+.acervo-filtros .campo {
+  margin-bottom: 0;
+}
+
+.acervo-lista {
+  display: grid;
+  gap: 16px;
+}
+
+.acervo-card {
+  background: #fff;
+  border: 1px solid var(--cinza-200, #e5e7eb);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.acervo-card-cabecalho {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.acervo-card h3 {
+  margin: 6px 0 4px;
+  font-size: 1.12rem;
+  line-height: 1.35;
+}
+
+.acervo-card-autores {
+  color: var(--cinza-600, #4b5563);
+  margin: 0;
+}
+
+.acervo-status,
+.acervo-referencia {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.acervo-status.disponivel {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.acervo-status.emprestado {
+  color: #9a3412;
+  background: #ffedd5;
+}
+
+.acervo-status.indisponivel {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.acervo-status.ativo {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.acervo-status.atrasado {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.acervo-status.devolvido {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.acervo-referencia {
+  color: #7c2d12;
+  background: #ffedd5;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.acervo-dados {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.acervo-dado {
+  background: var(--cinza-50, #f8fafc);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.acervo-dado span {
+  display: block;
+  color: var(--cinza-600, #64748b);
+  font-size: 0.75rem;
+  margin-bottom: 3px;
+}
+
+.acervo-dado strong {
+  font-size: 0.9rem;
+}
+
+.acervo-sinopse {
+  color: var(--cinza-700, #374151);
+  line-height: 1.55;
+  margin: 12px 0 0;
+}
+
+.acervo-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.acervo-abas-internas {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.acervo-modal-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.62);
+}
+
+.acervo-modal {
+  width: min(620px, 100%);
+  max-height: 92vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.3);
+}
+
+.acervo-modal-cabecalho {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.acervo-modal-cabecalho h3 {
+  margin: 0 0 5px;
+}
+
+.acervo-modal-fechar {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.acervo-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.acervo-form-grid .campo-full {
+  grid-column: 1 / -1;
+}
+
+.acervo-aviso {
+  padding: 12px 14px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+}
+
+.acervo-aviso.sucesso {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.acervo-aviso.erro {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.acervo-vazio {
+  padding: 44px 20px;
+  text-align: center;
+  border: 1px dashed var(--cinza-300, #cbd5e1);
+  border-radius: 14px;
+  background: #fff;
+}
+
+@media (max-width: 980px) {
+  .acervo-filtros {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .acervo-dados {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .acervo-filtros,
+  .acervo-form-grid,
+  .acervo-dados {
+    grid-template-columns: 1fr;
+  }
+
+  .acervo-card-cabecalho {
+    flex-direction: column;
+  }
+
+  .acervo-filtros .btn,
+  .acervo-acoes .btn {
+    width: 100%;
+  }
+}
+
+.acervo-status.pendente {
+  color: #854d0e;
+  background: #fef3c7;
+}
+
+.acervo-status.recusado {
+  color: #7f1d1d;
+  background: #fee2e2;
+}
+
+.acervo-orientacao,
+.acervo-texto-apoio {
+  color: var(--cinza-600, #64748b);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.acervo-orientacao {
+  margin: -6px 0 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.acervo-texto-apoio {
+  margin: 4px 0 0;
+}

@@ -1,88 +1,151 @@
 /**
  * components/certificados/CertificateCFDR.jsx
  *
- * Certificado A4 landscape do Centro de Formação Darcy Ribeiro.
- * Inclui QR Code de autenticidade no canto inferior direito.
- *
- * Props:
- *  participantName  — Nome completo do participante
- *  eventType        — Tipo do evento (ex.: "Curso", "Oficina", "Palestra")
- *  eventTitle       — Título do evento
- *  day              — Dia (ex.: "15")
- *  month            — Mês por extenso (ex.: "março")
- *  year             — Ano (ex.: "2025")
- *  workloadHours    — Carga horária (ex.: "40")
- *  qrCodeDataUrl    — data:image/png;base64,... do QR Code (opcional)
- *  hashUnico        — hash_unico do certificado para exibir abaixo do QR
- *  logoSrc          — override da logo (opcional)
- *  signatures       — Array de { name, role } para assinaturas (opcional)
+ * Pré-visualização do certificado A4 horizontal com frente e verso.
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import styles from './CertificateCFDR.module.css';
 
-// ─── Assinantes padrão ────────────────────────────────────────────────────
 const DEFAULT_SIGNATURES = [
-  { name: 'Ana Schilke',  role: 'Diretora do Centro de Formação Darcy Ribeiro' },
-  { name: 'Bira Marques', role: 'Secretário Municipal de Educação de Niterói' },
+  {
+    name: 'Ana Schilke',
+    role: 'Diretora do Centro de Formação Darcy Ribeiro',
+    imageSrc: '/assinatura_ana_schilke.png'
+  },
+  {
+    name: 'Bira Marques',
+    role: 'Secretário Municipal de Educação de Niterói',
+    imageSrc: '/assinatura_bira_marques.png'
+  }
 ];
 
-// ─── Remove fundo preto da logo (canvas trick) ────────────────────────────
 function removeBlackBackground(img) {
   try {
     const canvas = document.createElement('canvas');
-    canvas.width  = img.naturalWidth;
+    canvas.width = img.naturalWidth;
     canvas.height = img.naturalHeight;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+
     ctx.drawImage(img, 0, 0);
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
+
     for (let i = 0; i < data.length; i += 4) {
-      if ((data[i] + data[i + 1] + data[i + 2]) / 3 < 60) data[i + 3] = 0;
+      if ((data[i] + data[i + 1] + data[i + 2]) / 3 < 60) {
+        data[i + 3] = 0;
+      }
     }
+
     ctx.putImageData(imageData, 0, 0);
     img.src = canvas.toDataURL('image/png');
   } catch {
-    // CORS taint – mantém logo original
+    // Mantém a imagem original quando o navegador bloquear o canvas por CORS.
   }
 }
 
-// ─── Componente ───────────────────────────────────────────────────────────
+function formatarData(dataIso) {
+  if (!dataIso) return '—';
+
+  const texto = String(dataIso).slice(0, 10);
+  const [ano, mes, dia] = texto.split('-');
+  if (!ano || !mes || !dia) return '—';
+
+  return `${dia}/${mes}/${ano}`;
+}
+
+function montarPeriodo(dataInicio, dataFim) {
+  const inicio = formatarData(dataInicio);
+  const fim = formatarData(dataFim || dataInicio);
+
+  if (inicio === '—') return '—';
+  return inicio === fim ? inicio : `${inicio} a ${fim}`;
+}
+
+function montarItensConteudo(valor) {
+  const texto = String(valor || '').trim();
+  if (!texto) return [];
+
+  let itens = texto
+    .split(/\r?\n/)
+    .map(item => item.trim())
+    .filter(Boolean);
+
+  if (itens.length === 1 && itens[0].includes(';')) {
+    itens = itens[0]
+      .split(';')
+      .map(item => item.trim())
+      .filter(Boolean);
+  }
+
+  return itens.map(item => item.replace(/^[-•▪◦*\d.)\s]+/, '').trim());
+}
+
 export default function CertificateCFDR({
   participantName,
-  eventType    = 'Curso',
+  eventType = 'Curso',
   eventTitle,
   day,
   month,
   year,
   workloadHours,
+  startDate,
+  endDate,
+  purpose,
+  programContent,
+  targetAudience,
+  location,
+  responsible,
+  requestingSector,
   qrCodeDataUrl = null,
-  hashUnico     = null,
-  logoSrc       = null,
-  signatures    = DEFAULT_SIGNATURES,
+  hashUnico = null,
+  logoSrc = null,
+  signatures = DEFAULT_SIGNATURES
 }) {
-  const logoRef = useRef(null);
+  const logoFrontRef = useRef(null);
+  const logoBackRef = useRef(null);
 
-  // Remove fundo preto da logo quando ela carregar
   useEffect(() => {
-    if (!logoSrc) return;
-    const img = logoRef.current;
-    if (!img) return;
-    if (img.complete && img.naturalWidth > 0) {
-      removeBlackBackground(img);
-    } else {
-      const onLoad = () => removeBlackBackground(img);
-      img.addEventListener('load', onLoad);
-      return () => img.removeEventListener('load', onLoad);
-    }
+    if (!logoSrc) return undefined;
+
+    const imagens = [logoFrontRef.current, logoBackRef.current].filter(Boolean);
+    const listeners = [];
+
+    imagens.forEach(img => {
+      if (img.complete && img.naturalWidth > 0) {
+        removeBlackBackground(img);
+      } else {
+        const onLoad = () => removeBlackBackground(img);
+        img.addEventListener('load', onLoad);
+        listeners.push([img, onLoad]);
+      }
+    });
+
+    return () => {
+      listeners.forEach(([img, onLoad]) => img.removeEventListener('load', onLoad));
+    };
   }, [logoSrc]);
+
+  const participantNameUpper = useMemo(
+    () => String(participantName || '[NOME]').trim().toLocaleUpperCase('pt-BR'),
+    [participantName]
+  );
+
+  const itensConteudo = useMemo(
+    () => montarItensConteudo(programContent),
+    [programContent]
+  );
+
+  const classeLista = itensConteudo.length > 14
+    ? `${styles.programList} ${styles.programListCompact}`
+    : itensConteudo.length > 9
+      ? `${styles.programList} ${styles.programListMedium}`
+      : styles.programList;
 
   return (
     <div className={styles.certificateWrapper}>
-      <div className={styles.certificate}>
-
-        {/* ── HEADER ──────────────────────────────────────────────── */}
+      <section className={`${styles.certificate} ${styles.certificatePage}`}>
         <div className={styles.certHeader}>
           <div className={`${styles.circle} ${styles.c1}`} />
           <div className={`${styles.circle} ${styles.c2}`} />
@@ -90,7 +153,7 @@ export default function CertificateCFDR({
 
           {logoSrc && (
             <img
-              ref={logoRef}
+              ref={logoFrontRef}
               className={styles.certHeaderLogo}
               src={logoSrc}
               alt="Prefeitura de Niterói — Educação"
@@ -104,16 +167,12 @@ export default function CertificateCFDR({
           </div>
         </div>
 
-        {/* ── BODY ────────────────────────────────────────────────── */}
         <div className={styles.certBody}>
-
-          {/* Título */}
           <div className={styles.certTitle}>CERTIFICADO</div>
 
-          {/* Texto */}
           <p className={styles.certText}>
             Certificamos que{' '}
-            <span className={styles.highlight}>{participantName || '[NOME]'}</span>{' '}
+            <span className={styles.highlight}>{participantNameUpper}</span>{' '}
             participou do(a){' '}
             <span className={styles.highlight}>{eventType}</span>{' '}
             <span className={styles.highlight}>{eventTitle || '[TÍTULO]'}</span>,
@@ -128,20 +187,26 @@ export default function CertificateCFDR({
             <strong>{workloadHours || '[CARGA]'} horas</strong>.
           </p>
 
-          {/* Assinaturas + QR Code */}
           <div className={styles.certBottom}>
-
-            {/* Assinaturas */}
             <div className={styles.certSignatures}>
-              {signatures.map((sig) => (
+              {signatures.map(sig => (
                 <div key={sig.name} className={styles.signature}>
+                  <div className={styles.sigImageArea}>
+                    {sig.imageSrc && (
+                      <img
+                        src={sig.imageSrc}
+                        alt={`Assinatura de ${sig.name}`}
+                        className={styles.sigImage}
+                      />
+                    )}
+                  </div>
+                  <div className={styles.sigLine} />
                   <div className={styles.sigName}>{sig.name}</div>
                   <div className={styles.sigRole}>{sig.role}</div>
                 </div>
               ))}
             </div>
 
-            {/* QR Code */}
             {qrCodeDataUrl && (
               <div className={styles.certQr}>
                 <img
@@ -160,9 +225,80 @@ export default function CertificateCFDR({
           </div>
         </div>
 
-        {/* ── FOOTER BAR ──────────────────────────────────────────── */}
+        <div className={styles.certFooterBar} />
+      </section>
+
+      <section className={`${styles.certificate} ${styles.certificatePage} ${styles.certificateBack}`}>
+        <div className={styles.backHeader}>
+          <div className={`${styles.circle} ${styles.c1}`} />
+          <div className={`${styles.circle} ${styles.c2}`} />
+          <div className={`${styles.circle} ${styles.c3}`} />
+
+          <div className={styles.backMiniLogo}>
+            CENTRO DE FORMAÇÃO<br />
+            <strong>DARCY RIBEIRO</strong>
+          </div>
+
+          {logoSrc && (
+            <img
+              ref={logoBackRef}
+              className={styles.certHeaderLogo}
+              src={logoSrc}
+              alt="Prefeitura de Niterói — Educação"
+              crossOrigin="anonymous"
+            />
+          )}
+        </div>
+
+        <div className={styles.backBody}>
+          <aside className={styles.trainingData}>
+            <h2>Dados da formação</h2>
+
+            <DataItem label="Título" value={eventTitle} />
+            <DataItem label="Período de realização" value={montarPeriodo(startDate, endDate)} />
+            <DataItem label="Carga horária" value={`${workloadHours || '—'} horas`} />
+            <DataItem label="Público-alvo" value={targetAudience} />
+            <DataItem label="Local" value={location || 'Centro de Formação Darcy Ribeiro'} />
+            <DataItem label="Responsável" value={responsible} />
+            <DataItem label="Setor demandante" value={requestingSector} />
+            <DataItem label="Objetivo" value={purpose} objective />
+          </aside>
+
+          <main className={styles.programContent}>
+            <h2>Conteúdo programático</h2>
+
+            {itensConteudo.length ? (
+              <ul className={classeLista}>
+                {itensConteudo.map((item, index) => (
+                  <li key={`${item}-${index}`}>{item}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className={styles.programEmpty}>
+                Conteúdo programático não informado.
+              </p>
+            )}
+          </main>
+        </div>
+
         <div className={styles.certFooterBar} />
 
+        {hashUnico && (
+          <div className={styles.backValidation}>
+            Código de autenticidade: {hashUnico.slice(0, 22)}…
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function DataItem({ label, value, objective = false }) {
+  return (
+    <div className={styles.dataItem}>
+      <span className={styles.dataLabel}>{label}</span>
+      <div className={`${styles.dataValue} ${objective ? styles.dataObjective : ''}`}>
+        {value || 'Não informado'}
       </div>
     </div>
   );

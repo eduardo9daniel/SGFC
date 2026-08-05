@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import PainelLayout from '../../components/PainelLayout';
 import { Spinner } from '../../components/ui';
 import { useToast } from '../../context/ToastContext';
@@ -33,6 +34,7 @@ function numero(valor) {
 export default function InventarioConsumo() {
   const toast = useToast();
   const { user } = useAuth();
+  const base = user?.tipo === 'coordenador' ? '/coordenador' : '/admin';
 
   const [itens, setItens] = useState([]);
   const [resumo, setResumo] = useState({});
@@ -173,24 +175,28 @@ export default function InventarioConsumo() {
 
   if (loading) {
     return (
-      <PainelLayout titulo="Inventário de Bens de Consumo">
+      <PainelLayout titulo="Bens de Consumo">
         <Spinner />
       </PainelLayout>
     );
   }
 
   return (
-    <PainelLayout titulo="Inventário de Bens de Consumo">
+    <PainelLayout titulo="Bens de Consumo">
       <div className="d-flex align-center justify-between mb-24 flex-wrap gap-16">
         <div>
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>
-            Inventário de Bens de Consumo
+            Bens de Consumo
           </h2>
 
           <p style={{ color: 'var(--cinza-600)', fontSize: '.88rem' }}>
             Controle de insumos, estoque mínimo, validade e localização dos materiais.
           </p>
         </div>
+
+        <Link to={`${base}/inventario`} className="btn btn-outline">
+          ← Voltar ao Inventário
+        </Link>
       </div>
 
       <div

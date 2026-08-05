@@ -2,77 +2,98 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PainelLayout from '../../components/PainelLayout';
 import { Spinner } from '../../components/ui';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
+import {
+  obterDestinoNotificacao,
+  obterRotaNotificacoes
+} from '../../utils/notificacoes';
 
 export default function Notificacoes() {
   const [notificacoes, setNotificacoes] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const navigate = useNavigate();
+  const { user } = useAuth();
 
-  const usuario = JSON.parse(localStorage.getItem('user') || '{}');
-  const tipoUsuario = usuario.tipo || usuario.tipo_usuario;
-  const isEquipe = tipoUsuario === 'equipe';
+  const tipoUsuario = String(
+    user?.tipo || user?.tipo_usuario || ''
+  ).toLowerCase();
 
   async function carregar() {
     setLoading(true);
 
     try {
       const { data } = await api.get('/notificacoes');
-      setNotificacoes(data.data || []);
+
+      setNotificacoes(
+        Array.isArray(data?.data)
+          ? data.data
+          : []
+      );
+    } catch (error) {
+      console.error(
+        'Erro ao carregar notificações:',
+        error
+      );
+
+      setNotificacoes([]);
     } finally {
       setLoading(false);
     }
   }
 
   async function marcarComoLida(id) {
-    await api.patch(`/notificacoes/${id}/lida`);
+    try {
+      await api.patch(
+        `/notificacoes/${id}/lida`
+      );
 
-    setNotificacoes(prev =>
-      prev.map(n =>
-        n.id === id ? { ...n, lida: 1 } : n
-      )
-    );
-  }
-
-  function isPropostaRecusada(notificacao) {
-    const tipo = String(notificacao.tipo || '').toLowerCase();
-    const titulo = String(notificacao.titulo || '').toLowerCase();
-    const mensagem = String(notificacao.mensagem || '').toLowerCase();
-
-    return (
-      tipo === 'proposta_recusada' ||
-      titulo.includes('recusada') ||
-      titulo.includes('cancelada') ||
-      mensagem.includes('recusada') ||
-      mensagem.includes('cancelada')
-    );
+      setNotificacoes(prev =>
+        prev.map(notificacao =>
+          String(notificacao.id) === String(id)
+            ? {
+                ...notificacao,
+                lida: 1
+              }
+            : notificacao
+        )
+      );
+    } catch (error) {
+      console.error(
+        'Erro ao marcar notificação como lida:',
+        error
+      );
+    }
   }
 
   function obterDestino(notificacao) {
-  const tipo = String(notificacao.tipo || '').toLowerCase();
-  const referenciaId = notificacao.referencia_id;
+    const destino = obterDestinoNotificacao(
+      notificacao,
+      tipoUsuario
+    );
 
-  if (notificacao.link && notificacao.link !== '#' && notificacao.link !== '/') {
-    return notificacao.link;
+    const rotaTelaNotificacoes =
+      obterRotaNotificacoes(tipoUsuario);
+
+    /*
+     * Não exibe o botão Abrir quando o destino
+     * for a própria página de notificações.
+     */
+    if (
+      !destino ||
+      destino === rotaTelaNotificacoes
+    ) {
+      return null;
+    }
+
+    return destino;
   }
 
-  if (tipo === 'nova_proposta_formacao' && referenciaId) {
-    return `/coordenador/propostas-formacao/${referenciaId}`;
-  }
-
-  if (tipo === 'proposta_confirmada' && referenciaId) {
-    return `/equipe/minhas-propostas/${referenciaId}`;
-  }
-
-  if (tipo === 'proposta_recusada' && referenciaId) {
-    return `/equipe/minhas-propostas/${referenciaId}`;
-  }
-
-  return null;
-}
-
-  async function abrirNotificacao(event, notificacao) {
+  async function abrirNotificacao(
+    event,
+    notificacao
+  ) {
     event.preventDefault();
     event.stopPropagation();
 
@@ -82,12 +103,33 @@ export default function Notificacoes() {
       return;
     }
 
-    try {
-      if (!notificacao.lida) {
-        await api.patch(`/notificacoes/${notificacao.id}/lida`);
+    /*
+     * Marca a notificação como lida antes de navegar.
+     * Caso a requisição falhe, a navegação continua.
+     */
+    if (Number(notificacao.lida) !== 1) {
+      try {
+        await api.patch(
+          `/notificacoes/${notificacao.id}/lida`
+        );
+
+        setNotificacoes(prev =>
+          prev.map(item =>
+            String(item.id) ===
+            String(notificacao.id)
+              ? {
+                  ...item,
+                  lida: 1
+                }
+              : item
+          )
+        );
+      } catch (error) {
+        console.error(
+          'Erro ao marcar notificação como lida:',
+          error
+        );
       }
-    } catch {
-      // Mesmo se falhar ao marcar como lida, mantém a navegação.
     }
 
     navigate(destino);
@@ -109,7 +151,13 @@ export default function Notificacoes() {
     <PainelLayout titulo="Notificações">
       <div className="mb-24">
         <h2>Notificações</h2>
-        <p style={{ color: 'var(--cinza-600)', fontSize: '.9rem' }}>
+
+        <p
+          style={{
+            color: 'var(--cinza-600)',
+            fontSize: '.9rem'
+          }}
+        >
           Acompanhe as atualizações do sistema.
         </p>
       </div>
@@ -119,28 +167,42 @@ export default function Notificacoes() {
           <p>Nenhuma notificação encontrada.</p>
         )}
 
-        {notificacoes.map(n => {
-          const recusada = isPropostaRecusada(n);
-          const destino = obterDestino(n);
-          const lida = Number(n.lida) === 1;
+        {notificacoes.map(notificacao => {
+          const destino =
+            obterDestino(notificacao);
 
-          const mostrarBotaoAbrir = !!destino;
+          const lida =
+            Number(notificacao.lida) === 1;
+
+          const mostrarBotaoAbrir =
+            Boolean(destino);
 
           return (
             <div
-              key={n.id}
+              key={notificacao.id}
               style={{
                 padding: '16px 0',
-                borderBottom: '1px solid var(--cinza-200)',
+                borderBottom:
+                  '1px solid var(--cinza-200)',
                 opacity: 1
               }}
             >
-              <h3 style={{ fontSize: '1rem', marginBottom: 4 }}>
-                {n.titulo}
+              <h3
+                style={{
+                  fontSize: '1rem',
+                  marginBottom: 4
+                }}
+              >
+                {notificacao.titulo}
               </h3>
 
-              <p style={{ color: 'var(--cinza-700)', marginBottom: 8 }}>
-                {n.mensagem}
+              <p
+                style={{
+                  color: 'var(--cinza-700)',
+                  marginBottom: 8
+                }}
+              >
+                {notificacao.mensagem}
               </p>
 
               <div className="d-flex gap-8">
@@ -148,7 +210,12 @@ export default function Notificacoes() {
                   <button
                     type="button"
                     className="btn btn-outline btn-sm"
-                    onClick={(event) => abrirNotificacao(event, n)}
+                    onClick={event =>
+                      abrirNotificacao(
+                        event,
+                        notificacao
+                      )
+                    }
                   >
                     Abrir
                   </button>
@@ -162,7 +229,8 @@ export default function Notificacoes() {
                     style={{
                       backgroundColor: '#16a34a',
                       color: '#ffffff',
-                      border: '1px solid #16a34a',
+                      border:
+                        '1px solid #16a34a',
                       cursor: 'default',
                       opacity: 1
                     }}
@@ -173,7 +241,11 @@ export default function Notificacoes() {
                   <button
                     type="button"
                     className="btn btn-primario btn-sm"
-                    onClick={() => marcarComoLida(n.id)}
+                    onClick={() =>
+                      marcarComoLida(
+                        notificacao.id
+                      )
+                    }
                   >
                     Marcar como lida
                   </button>

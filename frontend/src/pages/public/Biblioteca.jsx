@@ -4,6 +4,7 @@ import {
   FooterPublico
 } from '../../components/PublicLayout';
 import { Spinner } from '../../components/ui';
+import PublicAcervoLivros from '../../components/biblioteca/PublicAcervoLivros';
 import api from '../../api';
 import '../../cfdr_home_styles.css';
 
@@ -309,13 +310,11 @@ export default function Biblioteca() {
             
 
             <h1>
-              Biblioteca e Pesquisas
+              Biblioteca
             </h1>
 
             <p className="cfdr-subtitulo">
-              Consulte trabalhos acadêmicos
-              e pesquisas cadastradas no
-              sistema.
+              Consulte trabalhos acadêmicos, pesquisas e livros disponíveis no sistema.
             </p>
           </div>
         </div>
@@ -352,6 +351,20 @@ export default function Biblioteca() {
             >
               🔎 Pesquisas
             </button>
+
+            <button
+              type="button"
+              className={`biblioteca-aba ${
+                abaAtiva === 'acervo'
+                  ? 'ativa'
+                  : ''
+              }`}
+              onClick={() => {
+                setAbaAtiva('acervo');
+              }}
+            >
+              📖 Acervo de livros
+            </button>
           </div>
 
           {/* =================================================
@@ -375,7 +388,7 @@ export default function Biblioteca() {
                     );
                     setPaginaAtual(1);
                   }}
-                  placeholder="Digite um título, autor/servidor, cargo, tema ou palavra-chave"
+                  placeholder="Título, autor, referência, tema ou palavra-chave"
                   className="input"
                 />
 
@@ -452,6 +465,11 @@ export default function Biblioteca() {
                             </p>
 
                             <h3>
+                              {item.codigo_referencia && (
+                                <span className="acervo-referencia">
+                                  {item.codigo_referencia}
+                                </span>
+                              )}
                               {item.titulo ||
                                 'Título não informado'}
                             </h3>
@@ -609,7 +627,7 @@ export default function Biblioteca() {
                     );
                     setPaginaPesquisa(1);
                   }}
-                  placeholder="Nome, título, filiação ou palavra-chave"
+                  placeholder="Referência, nome, título, filiação ou palavra-chave"
                   className="input"
                 />
 
@@ -688,6 +706,11 @@ export default function Biblioteca() {
                             </p>
 
                             <h3>
+                              {item.codigo_referencia && (
+                                <span className="acervo-referencia">
+                                  {item.codigo_referencia}
+                                </span>
+                              )}
                               {item.titulo_trabalho ||
                                 'Pesquisa sem título informado'}
                             </h3>
@@ -823,6 +846,10 @@ export default function Biblioteca() {
                 </>
               )}
             </>
+          )}
+
+          {abaAtiva === 'acervo' && (
+            <PublicAcervoLivros />
           )}
         </div>
       </section>

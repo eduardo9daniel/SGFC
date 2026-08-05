@@ -411,9 +411,9 @@ export default function PrimeiroAcesso() {
           <p style={{ textAlign: 'center', fontSize: '.85rem' }}>
             <button
               type="button"
-              onClick={() => {
-                logout();
-                navigate('/login', { replace: true });
+              onClick={async () => {
+              await logout();
+              navigate('/login', { replace: true });
               }}
               style={{
                 background: 'none',

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+
 import { useAuth } from '../context/AuthContext';
 import logo from '../assets/img/logo/logo_menu_publico_recortado.png';
 import logoPrefeituraEducacao from '../assets/img/logo/logo_prefeitura_educacao_negativa.png';
@@ -16,8 +17,8 @@ export function HeaderPublico() {
     setMenuAberto(false);
   }
 
-  function handleLogout() {
-    logout();
+  async function handleLogout() {
+    await logout();
     fecharMenu();
     navigate('/');
   }
@@ -44,10 +45,8 @@ export function HeaderPublico() {
           className={`header-menu-mobile ${
             menuAberto ? 'ativo' : ''
           }`}
-          onClick={() => setMenuAberto((estado) => !estado)}
-          aria-label={
-            menuAberto ? 'Fechar menu' : 'Abrir menu'
-          }
+          onClick={() => setMenuAberto(estado => !estado)}
+          aria-label={menuAberto ? 'Fechar menu' : 'Abrir menu'}
           aria-expanded={menuAberto}
         >
           <span />
@@ -82,7 +81,7 @@ export function HeaderPublico() {
             className="nav-publico-link"
             onClick={fecharMenu}
           >
-            Biblioteca e Pesquisas 
+            Biblioteca e Pesquisas
           </Link>
 
           <Link
@@ -141,14 +140,22 @@ export function FooterPublico() {
     <footer className="footer">
       <div className="footer-inner">
         <div className="footer-top">
-          {/* Logos institucionais */}
           <div className="footer-marcas">
             <div className="footer-logos-linha">
-              <img
-                className="footer-logo-prefeitura"
-                src={logoPrefeituraEducacao}
-                alt="Prefeitura de Niterói - Educação"
-              />
+              <a
+                href="https://www.educacao.niteroi.rj.gov.br/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="footer-logo-prefeitura-link"
+                aria-label="Acessar o site da Secretaria Municipal de Educação de Niterói em uma nova aba"
+                title="Acessar o site da Educação de Niterói"
+              >
+                <img
+                  className="footer-logo-prefeitura"
+                  src={logoPrefeituraEducacao}
+                  alt="Prefeitura de Niterói - Educação"
+                />
+              </a>
 
               <span
                 className="footer-logo-separador"
@@ -168,7 +175,6 @@ export function FooterPublico() {
             </div>
           </div>
 
-          {/* Links */}
           <div style={{ flex: 1 }}>
             <h4
               style={{
@@ -192,7 +198,7 @@ export function FooterPublico() {
                 ['/biblioteca', 'Biblioteca'],
                 ['/cadastro', 'Cadastrar-se'],
                 ['/login', 'Login'],
-                ['/validar-certificado', 'Verificar Certificado'],
+                ['/validar-certificado', 'Verificar Certificado']
               ].map(([to, label]) => (
                 <li key={to}>
                   <Link
@@ -210,7 +216,6 @@ export function FooterPublico() {
             </ul>
           </div>
 
-          {/* Endereço */}
           <div style={{ flex: 1 }}>
             <h4
               style={{

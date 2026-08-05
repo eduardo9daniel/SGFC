@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import PainelLayout from '../../components/PainelLayout';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
+import { criarRotasBiblioteca } from '../../utils/rotasBiblioteca';
 
 const empty = {
   titulo: '',
@@ -17,6 +19,8 @@ const empty = {
 
 export default function BibliotecaNovo() {
   const toast = useToast();
+  const { user } = useAuth();
+  const rotas = criarRotasBiblioteca(user?.tipo);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const id = searchParams.get('id');
@@ -62,7 +66,7 @@ export default function BibliotecaNovo() {
         });
       } catch (err) {
         toast(err.response?.data?.erro || 'Erro ao carregar item.', 'erro');
-        navigate('/admin/biblioteca');
+        navigate(rotas.gerenciamento);
       } finally {
         setCarregando(false);
       }
@@ -116,7 +120,7 @@ export default function BibliotecaNovo() {
         toast('Item cadastrado com sucesso!');
       }
 
-      navigate('/admin/biblioteca');
+      navigate(rotas.gerenciamento);
     } catch (err) {
       toast(
         err.response?.data?.erro ||
@@ -143,7 +147,7 @@ export default function BibliotecaNovo() {
       <div className="d-flex align-center gap-12 mb-24">
         <button
           className="btn btn-outline btn-sm"
-          onClick={() => navigate('/admin/biblioteca')}
+          onClick={() => navigate(rotas.gerenciamento)}
         >
           ← Voltar
         </button>
@@ -275,7 +279,7 @@ export default function BibliotecaNovo() {
             <button
               type="button"
               className="btn btn-outline btn-lg"
-              onClick={() => navigate('/admin/biblioteca')}
+              onClick={() => navigate(rotas.gerenciamento)}
             >
               Cancelar
             </button>

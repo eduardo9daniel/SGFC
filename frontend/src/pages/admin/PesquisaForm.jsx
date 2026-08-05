@@ -6,7 +6,9 @@ import {
 import PainelLayout from '../../components/PainelLayout';
 import { Spinner } from '../../components/ui';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
+import { criarRotasBiblioteca } from '../../utils/rotasBiblioteca';
 
 const formularioVazio = {
   nome: '',
@@ -36,6 +38,8 @@ const tiposTrabalho = [
 export default function PesquisaForm() {
   const navigate = useNavigate();
   const toast = useToast();
+  const { user } = useAuth();
+  const rotas = criarRotasBiblioteca(user?.tipo);
   const [searchParams] = useSearchParams();
 
   const id = searchParams.get('id');
@@ -72,7 +76,7 @@ export default function PesquisaForm() {
         );
 
         navigate(
-          '/admin/biblioteca?aba=pesquisas'
+          rotas.pesquisas
         );
 
         return;
@@ -110,7 +114,7 @@ export default function PesquisaForm() {
       );
 
       navigate(
-        '/admin/biblioteca?aba=pesquisas'
+        rotas.pesquisas
       );
     } finally {
       setLoading(false);
@@ -187,7 +191,7 @@ export default function PesquisaForm() {
       }
 
       navigate(
-        '/admin/biblioteca?aba=pesquisas'
+        rotas.pesquisas
       );
     } catch (error) {
       toast(
@@ -201,7 +205,7 @@ export default function PesquisaForm() {
   }
 
   function voltar() {
-    navigate('/admin/biblioteca-painel');
+    navigate(rotas.painel);
   }
 
   if (loading) {

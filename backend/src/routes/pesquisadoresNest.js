@@ -3,6 +3,7 @@ const multer = require('multer');
 const XLSX = require('xlsx');
 const db = require('../config/db');
 const auth = require('../middleware/auth');
+const { gerarCodigoReferencia } = require('../utils/referenciasBiblioteca');
 
 const publicRouter = express.Router();
 const adminRouter = express.Router();
@@ -80,6 +81,7 @@ publicRouter.get('/', async (req, res, next) => {
     let sql = `
   SELECT 
     id,
+    codigo_referencia,
     nome,
     natureza_pesquisa,
     titulo_trabalho,
@@ -98,7 +100,8 @@ publicRouter.get('/', async (req, res, next) => {
     if (busca) {
       sql += `
         AND (
-          nome LIKE ?
+          codigo_referencia LIKE ?
+          OR nome LIKE ?
           OR titulo_trabalho LIKE ?
           OR filiacao LIKE ?
           OR tipo_trabalho LIKE ?
@@ -107,7 +110,7 @@ publicRouter.get('/', async (req, res, next) => {
       `;
 
       const termo = `%${busca}%`;
-      params.push(termo, termo, termo, termo, termo);
+      params.push(termo, termo, termo, termo, termo, termo);
     }
 
     if (natureza) {
@@ -180,7 +183,8 @@ adminRouter.get('/', auth('admin', 'coordenador'), async (req, res, next) => {
     if (busca) {
       sql += `
         AND (
-          nome LIKE ?
+          codigo_referencia LIKE ?
+          OR nome LIKE ?
           OR titulo_trabalho LIKE ?
           OR filiacao LIKE ?
           OR tipo_trabalho LIKE ?
@@ -189,7 +193,7 @@ adminRouter.get('/', auth('admin', 'coordenador'), async (req, res, next) => {
       `;
 
       const termo = `%${busca}%`;
-      params.push(termo, termo, termo, termo, termo);
+      params.push(termo, termo, termo, termo, termo, termo);
     }
 
     if (natureza) {
@@ -212,18 +216,20 @@ adminRouter.get('/', auth('admin', 'coordenador'), async (req, res, next) => {
   }
 });
 
-adminRouter.post('/', auth('admin'), async (req, res, next) => {
+adminRouter.post('/', auth('admin', 'coordenador'), async (req, res, next) => {
+  const connection = await db.getConnection();
+
   try {
     const {
-  nome,
-  natureza_pesquisa,
-  titulo_trabalho,
-  link_lattes,
-  link_documento,
-  filiacao,
-  tipo_trabalho,
-  palavras_chave
-} = req.body;
+      nome,
+      natureza_pesquisa,
+      titulo_trabalho,
+      link_lattes,
+      link_documento,
+      filiacao,
+      tipo_trabalho,
+      palavras_chave
+    } = req.body;
 
     if (!nome) {
       return res.status(400).json({
@@ -232,54 +238,71 @@ adminRouter.post('/', auth('admin'), async (req, res, next) => {
       });
     }
 
-    const [result] = await db.query(
-  `
-  INSERT INTO pesquisadores_nest
-  (
-    nome,
-    natureza_pesquisa,
-    titulo_trabalho,
-    link_lattes,
-    link_documento,
-    filiacao,
-    tipo_trabalho,
-    palavras_chave
-  )
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `,
-  [
-    limparTexto(nome),
-    limparTexto(natureza_pesquisa) || null,
-    limparTexto(titulo_trabalho) || null,
-    linkValido(link_lattes),
-    linkValido(link_documento),
-    limparTexto(filiacao) || null,
-    limparTexto(tipo_trabalho) || null,
-    limparTexto(palavras_chave) || null
-  ]
-);
+    await connection.beginTransaction();
+
+    const codigoReferencia = await gerarCodigoReferencia(
+      connection,
+      'PESQ'
+    );
+
+    const [result] = await connection.query(
+      `
+      INSERT INTO pesquisadores_nest
+      (
+        codigo_referencia,
+        nome,
+        natureza_pesquisa,
+        titulo_trabalho,
+        link_lattes,
+        link_documento,
+        filiacao,
+        tipo_trabalho,
+        palavras_chave
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        codigoReferencia,
+        limparTexto(nome),
+        limparTexto(natureza_pesquisa) || null,
+        limparTexto(titulo_trabalho) || null,
+        linkValido(link_lattes),
+        linkValido(link_documento),
+        limparTexto(filiacao) || null,
+        limparTexto(tipo_trabalho) || null,
+        limparTexto(palavras_chave) || null
+      ]
+    );
+
+    await connection.commit();
 
     res.status(201).json({
       ok: true,
-      id: result.insertId
+      id: result.insertId,
+      codigo_referencia: codigoReferencia
     });
   } catch (err) {
+    await connection.rollback();
     next(err);
+  } finally {
+    connection.release();
   }
 });
 
-adminRouter.put('/:id', auth('admin'), async (req, res, next) => {
+adminRouter.put('/:id', auth('admin', 'coordenador'), async (req, res, next) => {
+  const connection = await db.getConnection();
+
   try {
     const {
-  nome,
-  natureza_pesquisa,
-  titulo_trabalho,
-  link_lattes,
-  link_documento,
-  filiacao,
-  tipo_trabalho,
-  palavras_chave
-} = req.body;
+      nome,
+      natureza_pesquisa,
+      titulo_trabalho,
+      link_lattes,
+      link_documento,
+      filiacao,
+      tipo_trabalho,
+      palavras_chave
+    } = req.body;
 
     if (!nome) {
       return res.status(400).json({
@@ -288,42 +311,74 @@ adminRouter.put('/:id', auth('admin'), async (req, res, next) => {
       });
     }
 
-    await db.query(
-  `
-  UPDATE pesquisadores_nest
-  SET
-    nome = ?,
-    natureza_pesquisa = ?,
-    titulo_trabalho = ?,
-    link_lattes = ?,
-    link_documento = ?,
-    filiacao = ?,
-    tipo_trabalho = ?,
-    palavras_chave = ?
-  WHERE id = ?
-  `,
-  [
-    limparTexto(nome),
-    limparTexto(natureza_pesquisa) || null,
-    limparTexto(titulo_trabalho) || null,
-    linkValido(link_lattes),
-    linkValido(link_documento),
-    limparTexto(filiacao) || null,
-    limparTexto(tipo_trabalho) || null,
-    limparTexto(palavras_chave) || null,
-    req.params.id
-  ]
-);
+    await connection.beginTransaction();
+
+    const [existentes] = await connection.query(
+      `
+      SELECT codigo_referencia
+      FROM pesquisadores_nest
+      WHERE id = ?
+      FOR UPDATE
+      `,
+      [req.params.id]
+    );
+
+    if (!existentes.length) {
+      await connection.rollback();
+      return res.status(404).json({
+        ok: false,
+        erro: 'Pesquisa não encontrada.'
+      });
+    }
+
+    const codigoReferencia =
+      existentes[0].codigo_referencia ||
+      await gerarCodigoReferencia(connection, 'PESQ');
+
+    await connection.query(
+      `
+      UPDATE pesquisadores_nest
+      SET
+        codigo_referencia = ?,
+        nome = ?,
+        natureza_pesquisa = ?,
+        titulo_trabalho = ?,
+        link_lattes = ?,
+        link_documento = ?,
+        filiacao = ?,
+        tipo_trabalho = ?,
+        palavras_chave = ?
+      WHERE id = ?
+      `,
+      [
+        codigoReferencia,
+        limparTexto(nome),
+        limparTexto(natureza_pesquisa) || null,
+        limparTexto(titulo_trabalho) || null,
+        linkValido(link_lattes),
+        linkValido(link_documento),
+        limparTexto(filiacao) || null,
+        limparTexto(tipo_trabalho) || null,
+        limparTexto(palavras_chave) || null,
+        req.params.id
+      ]
+    );
+
+    await connection.commit();
 
     res.json({
-      ok: true
+      ok: true,
+      codigo_referencia: codigoReferencia
     });
   } catch (err) {
+    await connection.rollback();
     next(err);
+  } finally {
+    connection.release();
   }
 });
 
-adminRouter.delete('/:id', auth('admin'), async (req, res, next) => {
+adminRouter.delete('/:id', auth('admin', 'coordenador'), async (req, res, next) => {
   try {
     await db.query(
       `
@@ -344,17 +399,19 @@ adminRouter.delete('/:id', auth('admin'), async (req, res, next) => {
 
 adminRouter.post(
   '/importar',
-  auth('admin'),
+  auth('admin', 'coordenador'),
   upload.single('arquivo'),
   async (req, res, next) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({
-          ok: false,
-          erro: 'Envie uma planilha Excel.'
-        });
-      }
+    if (!req.file) {
+      return res.status(400).json({
+        ok: false,
+        erro: 'Envie uma planilha Excel.'
+      });
+    }
 
+    const connection = await db.getConnection();
+
+    try {
       const workbook = XLSX.read(req.file.buffer, {
         type: 'buffer'
       });
@@ -372,6 +429,8 @@ adminRouter.post(
       let importados = 0;
       let ignorados = 0;
 
+      await connection.beginTransaction();
+
       for (const row of linhas) {
         const registro = normalizarRegistro(row);
 
@@ -380,35 +439,44 @@ adminRouter.post(
           continue;
         }
 
-        await db.query(
-  `
-  INSERT INTO pesquisadores_nest
-  (
-    nome,
-    natureza_pesquisa,
-    titulo_trabalho,
-    link_lattes,
-    link_documento,
-    filiacao,
-    tipo_trabalho,
-    palavras_chave
-  )
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `,
-  [
-    registro.nome,
-    registro.natureza_pesquisa || null,
-    registro.titulo_trabalho || null,
-    registro.link_lattes || null,
-    registro.link_documento || null,
-    registro.filiacao || null,
-    registro.tipo_trabalho || null,
-    registro.palavras_chave || null
-  ]
-);
+        const codigoReferencia = await gerarCodigoReferencia(
+          connection,
+          'PESQ'
+        );
+
+        await connection.query(
+          `
+          INSERT INTO pesquisadores_nest
+          (
+            codigo_referencia,
+            nome,
+            natureza_pesquisa,
+            titulo_trabalho,
+            link_lattes,
+            link_documento,
+            filiacao,
+            tipo_trabalho,
+            palavras_chave
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `,
+          [
+            codigoReferencia,
+            registro.nome,
+            registro.natureza_pesquisa || null,
+            registro.titulo_trabalho || null,
+            registro.link_lattes || null,
+            registro.link_documento || null,
+            registro.filiacao || null,
+            registro.tipo_trabalho || null,
+            registro.palavras_chave || null
+          ]
+        );
 
         importados++;
       }
+
+      await connection.commit();
 
       res.json({
         ok: true,
@@ -420,7 +488,10 @@ adminRouter.post(
         }
       });
     } catch (err) {
+      await connection.rollback();
       next(err);
+    } finally {
+      connection.release();
     }
   }
 );

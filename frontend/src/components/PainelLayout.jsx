@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Sidebar from './Sidebar';
+import NotificacaoPopup from './NotificacaoPopup';
 
 export default function PainelLayout({ titulo, children }) {
   const [sidebarAberta, setSidebarAberta] = useState(false);
@@ -30,6 +31,8 @@ export default function PainelLayout({ titulo, children }) {
           aria-label="Fechar menu"
         />
       )}
+
+      <NotificacaoPopup />
 
       <div className="painel-conteudo">
         <header className="topbar">

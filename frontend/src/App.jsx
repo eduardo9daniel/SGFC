@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import AuditoriaNavegacao from './components/AuditoriaNavegacao';
 import { ToastProvider } from './context/ToastContext';
 
 // Páginas Públicas
@@ -24,9 +25,13 @@ import AdminLogs         from './pages/admin/Logs';
 import AdminBiblioteca from './pages/admin/Biblioteca';
 import BibliotecaNovo from './pages/admin/BibliotecaNovo';
 import BibliotecaPainel from './pages/admin/BibliotecaPainel';
+import AdminInventario from './pages/admin/Inventario';
+import AdminInventarioDuraveis from './pages/admin/InventarioDuraveis';
 import AdminInventarioConsumo from './pages/admin/InventarioConsumo';
 import AdminPesquisadoresNest from './pages/admin/PesquisadoresNest';
 import PesquisaForm from './pages/admin/PesquisaForm';
+import LivroForm from './pages/admin/LivroForm';
+import AdminAgendarFormacao from './pages/admin/AgendarFormacao';
 
 // Coordenador
 import CoordDashboard    from './pages/coordenador/Dashboard';
@@ -38,7 +43,10 @@ import CoordParticipantes from './pages/coordenador/Participantes';
 import CoordRelatorios   from './pages/coordenador/Relatorios';
 import CoordPropostasFormacao from './pages/coordenador/PropostasFormacao';
 import CoordPropostaFormacaoDetalhe from './pages/coordenador/PropostaFormacaoDetalhe';
+import CoordInventario from './pages/coordenador/Inventario';
+import CoordInventarioDuraveis from './pages/coordenador/InventarioDuraveis';
 import CoordInventarioConsumo from './pages/coordenador/InventarioConsumo';
+import CoordBiblioteca from './pages/coordenador/Biblioteca';
 
 // Participante
 import PartDashboard    from './pages/participante/Dashboard';
@@ -58,10 +66,12 @@ import EquipeParticipantes from './pages/equipe/Participantes';
 import EquipeRelatorios from './pages/equipe/Relatorios';
 import EquipeAgendarFormacao from './pages/equipe/AgendarFormacao';
 import EquipeMinhasPropostas from './pages/equipe/MinhasPropostas';
+import EquipePerfil from './pages/equipe/Perfil';
 
 
 // Common
 import Notificacoes from './pages/common/Notificacoes';
+import AgendaSemanal from './pages/common/AgendaSemanal';
 
 function PrivateRoute({ children, tipos }) {
   const { user } = useAuth();
@@ -75,6 +85,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <ToastProvider>
+           <AuditoriaNavegacao />
           <Routes>
             
             {/* Públicas */}
@@ -91,6 +102,8 @@ export default function App() {
             {/* Admin */}
             <Route path="/admin" element={<PrivateRoute tipos={['admin']}><AdminDashboard /></PrivateRoute>} />
             <Route path="/admin/formacoes"    element={<PrivateRoute tipos={['admin']}><AdminFormacoes /></PrivateRoute>} />
+            <Route path="/admin/agenda-semanal"element={<PrivateRoute tipos={['admin']}><AgendaSemanal /></PrivateRoute>}/>
+            <Route path="/admin/agendar-formacao"element={<PrivateRoute tipos={['admin']}><AdminAgendarFormacao /></PrivateRoute>}/>
             <Route path="/admin/inscricoes"   element={<PrivateRoute tipos={['admin']}><AdminInscricoes /></PrivateRoute>} />
             <Route path="/admin/frequencia"   element={<PrivateRoute tipos={['admin']}><AdminFrequencia /></PrivateRoute>} />
             <Route path="/admin/certificados" element={<PrivateRoute tipos={['admin']}><AdminCertificados /></PrivateRoute>} />
@@ -98,15 +111,24 @@ export default function App() {
             <Route path="/admin/relatorios"   element={<PrivateRoute tipos={['admin']}><AdminRelatorios /></PrivateRoute>} />
             <Route path="/admin/logs"         element={<PrivateRoute tipos={['admin']}><AdminLogs /></PrivateRoute>} />
             <Route path="/admin/biblioteca-painel" element={<PrivateRoute tipos={['admin']}><BibliotecaPainel /></PrivateRoute>} />
-            <Route path="/admin/biblioteca"element={<PrivateRoute tipos={['admin']}><AdminBiblioteca /></PrivateRoute>}/>
-            <Route path="/admin/biblioteca/novo"element={<PrivateRoute tipos={['admin']}><BibliotecaNovo /></PrivateRoute>}/>
-            <Route path="/admin/inventario-consumo"element={<PrivateRoute tipos={['admin']}><AdminInventarioConsumo /></PrivateRoute>}/>
+            <Route path="/admin/biblioteca" element={<PrivateRoute tipos={['admin']}><AdminBiblioteca /></PrivateRoute>} />
+            <Route path="/admin/biblioteca/novo" element={<PrivateRoute tipos={['admin']}><BibliotecaNovo /></PrivateRoute>} />
+            <Route path="/admin/biblioteca/pesquisa/nova" element={<PrivateRoute tipos={['admin']}><PesquisaForm /></PrivateRoute>} />
+            <Route path="/admin/biblioteca/livro/novo" element={<PrivateRoute tipos={['admin']}><LivroForm /></PrivateRoute>} />
+            <Route path="/admin/inventario"element={<PrivateRoute tipos={['admin']}><AdminInventario /></PrivateRoute>}/>
+            <Route path="/admin/inventario/bens-consumo"element={<PrivateRoute tipos={['admin']}><AdminInventarioConsumo /></PrivateRoute>}/>
+            <Route path="/admin/inventario/bens-duraveis"element={<PrivateRoute tipos={['admin']}><AdminInventarioDuraveis /></PrivateRoute>}/>
+            <Route path="/admin/inventario-consumo"element={<Navigate to="/admin/inventario/bens-consumo" replace />}/>
             <Route path="/admin/pesquisadores-nest"element={<PrivateRoute tipos={['admin']}><AdminPesquisadoresNest /></PrivateRoute>}/>
-            <Route path="/admin/biblioteca/pesquisa/nova"element={<PesquisaForm />}/>
+            <Route path="/admin/propostas-formacao" element={<Navigate to="/admin" replace />} />
+            <Route path="/admin/propostas-formacao/:id" element={<Navigate to="/admin" replace />} />
+            <Route path="/admin/notificacoes" element={<Navigate to="/admin" replace />} />
 
             {/* Coordenador */}
             <Route path="/coordenador" element={<PrivateRoute tipos={['coordenador']}><CoordDashboard /></PrivateRoute>} />
             <Route path="/coordenador/formacoes"     element={<PrivateRoute tipos={['coordenador']}><CoordFormacoes /></PrivateRoute>} />
+            <Route path="/coordenador/agenda-semanal"element={<PrivateRoute tipos={['coordenador']}><AgendaSemanal /></PrivateRoute>}/>
+            <Route path="/coordenador/agendar-formacao"element={<PrivateRoute tipos={['coordenador']}><AdminAgendarFormacao /></PrivateRoute>}/>
             <Route path="/coordenador/inscricoes"    element={<PrivateRoute tipos={['coordenador']}><CoordInscricoes /></PrivateRoute>} />
             <Route path="/coordenador/frequencia"    element={<PrivateRoute tipos={['coordenador']}><CoordFrequencia /></PrivateRoute>} />
             <Route path="/coordenador/certificados"  element={<PrivateRoute tipos={['coordenador']}><CoordCertificados /></PrivateRoute>} />
@@ -115,7 +137,15 @@ export default function App() {
             <Route path="/coordenador/propostas-formacao"element={<PrivateRoute tipos={['coordenador']}><CoordPropostasFormacao /></PrivateRoute>}/>
             <Route path="/coordenador/propostas-formacao/:id"element={<PrivateRoute tipos={['coordenador']}><CoordPropostaFormacaoDetalhe /></PrivateRoute>}/>
             <Route path="/coordenador/notificacoes"element={<PrivateRoute tipos={['coordenador']}><Notificacoes /></PrivateRoute>}/>
-            <Route path="/coordenador/inventario-consumo"element={<PrivateRoute tipos={['coordenador']}><CoordInventarioConsumo /></PrivateRoute>}/>
+            <Route path="/coordenador/inventario"element={<PrivateRoute tipos={['coordenador']}><CoordInventario /></PrivateRoute>}/>
+            <Route path="/coordenador/inventario/bens-consumo"element={<PrivateRoute tipos={['coordenador']}><CoordInventarioConsumo /></PrivateRoute>}/>
+            <Route path="/coordenador/inventario/bens-duraveis"element={<PrivateRoute tipos={['coordenador']}><CoordInventarioDuraveis /></PrivateRoute>}/>
+            <Route path="/coordenador/inventario-consumo"element={<Navigate to="/coordenador/inventario/bens-consumo"replace/>}/>
+            <Route path="/coordenador/biblioteca-painel" element={<PrivateRoute tipos={['coordenador']}><BibliotecaPainel /></PrivateRoute>} />
+            <Route path="/coordenador/biblioteca" element={<PrivateRoute tipos={['coordenador']}><CoordBiblioteca /></PrivateRoute>} />
+            <Route path="/coordenador/biblioteca/novo" element={<PrivateRoute tipos={['coordenador']}><BibliotecaNovo /></PrivateRoute>} />
+            <Route path="/coordenador/biblioteca/pesquisa/nova" element={<PrivateRoute tipos={['coordenador']}><PesquisaForm /></PrivateRoute>} />
+            <Route path="/coordenador/biblioteca/livro/novo" element={<PrivateRoute tipos={['coordenador']}><LivroForm /></PrivateRoute>} />
 
             {/* Participante */}
             <Route path="/participante" element={<PrivateRoute tipos={['participante']}><PartDashboard /></PrivateRoute>} />
@@ -137,6 +167,8 @@ export default function App() {
           <Route path="/equipe/minhas-propostas"element={<PrivateRoute tipos={['equipe']}><EquipeMinhasPropostas /></PrivateRoute>}/>
           <Route path="/equipe/notificacoes"element={<PrivateRoute tipos={['equipe']}><Notificacoes /></PrivateRoute>}/>
           <Route path="/equipe"element={<PrivateRoute tipos={['equipe']}><EquipeDashboard /></PrivateRoute>}/>
+          <Route path="/equipe/agenda-semanal"element={<PrivateRoute tipos={['equipe']}><AgendaSemanal /></PrivateRoute>}/>
+          <Route path="/equipe/perfil"element={<PrivateRoute tipos={['equipe']}><EquipePerfil /></PrivateRoute>}/>
           
 
             {/* Certificado Viewer - ADICIONADO */}

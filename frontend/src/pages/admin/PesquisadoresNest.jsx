@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import PainelLayout from '../../components/PainelLayout';
 import { Spinner } from '../../components/ui';
 import api from '../../api';
+import '../../styles/acervoLivros.css';
 
 const empty = {
   nome: '',
@@ -325,7 +326,7 @@ export default function PesquisadoresNest() {
           <input
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar por nome, título, filiação ou palavra-chave"
+            placeholder="Buscar por referência, nome, título, filiação ou palavra-chave"
           />
 
           <select
@@ -378,6 +379,11 @@ export default function PesquisadoresNest() {
                       <td style={{ fontWeight: 700 }}>{item.nome}</td>
                       <td>{item.natureza_pesquisa || '-'}</td>
                       <td style={{ maxWidth: 360 }}>
+                        {item.codigo_referencia && (
+                          <span className="acervo-referencia">
+                            {item.codigo_referencia}
+                          </span>
+                        )}
                         {item.titulo_trabalho || '-'}
                       </td>
                       <td>{item.filiacao || '-'}</td>

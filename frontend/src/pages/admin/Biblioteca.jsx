@@ -6,7 +6,11 @@ import {
 import PainelLayout from '../../components/PainelLayout';
 import { Spinner } from '../../components/ui';
 import { useToast } from '../../context/ToastContext';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../api';
+import { criarRotasBiblioteca } from '../../utils/rotasBiblioteca';
+import AdminAcervoLivros from '../../components/biblioteca/AdminAcervoLivros';
+import '../../styles/acervoLivros.css';
 
 const naturezasPesquisa = [
   '',
@@ -17,17 +21,25 @@ const naturezasPesquisa = [
 
 export default function AdminBiblioteca() {
   const toast = useToast();
+  const { user } = useAuth();
+  const rotas = criarRotasBiblioteca(user?.tipo);
 
   const [
     searchParams,
     setSearchParams
   ] = useSearchParams();
 
-  const [abaAtiva, setAbaAtiva] = useState(
-    searchParams.get('aba') === 'pesquisas'
-      ? 'pesquisas'
-      : 'biblioteca'
-  );
+  const [abaAtiva, setAbaAtiva] = useState(() => {
+    const aba = searchParams.get('aba');
+
+    if (['pesquisas', 'acervo'].includes(aba)) {
+      return aba;
+    }
+
+    return searchParams.get('subaba')
+      ? 'acervo'
+      : 'biblioteca';
+  });
 
   const [visualizacao, setVisualizacao] =
     useState(null);
@@ -244,6 +256,7 @@ export default function AdminBiblioteca() {
 
   const itensFiltrados = itens.filter(item => {
     const texto = `
+      ${item.codigo_referencia || ''}
       ${item.titulo || ''}
       ${item.autor || ''}
       ${item.cargo || ''}
@@ -578,9 +591,11 @@ export default function AdminBiblioteca() {
       searchParams.get('aba');
 
     setAbaAtiva(
-      abaUrl === 'pesquisas'
-        ? 'pesquisas'
-        : 'biblioteca'
+      ['pesquisas', 'acervo'].includes(abaUrl)
+        ? abaUrl
+        : searchParams.get('subaba')
+          ? 'acervo'
+          : 'biblioteca'
     );
   }, [searchParams]);
 
@@ -591,9 +606,9 @@ export default function AdminBiblioteca() {
   function mudarAba(nomeAba) {
     setAbaAtiva(nomeAba);
 
-    if (nomeAba === 'pesquisas') {
+    if (['pesquisas', 'acervo'].includes(nomeAba)) {
       setSearchParams({
-        aba: 'pesquisas'
+        aba: nomeAba
       });
     } else {
       setSearchParams({});
@@ -616,7 +631,7 @@ export default function AdminBiblioteca() {
               fontWeight: 800
             }}
           >
-            Biblioteca e Pesquisas
+            Trabalhos Acadêmicos, Pesquisas e Acervo
           </h2>
 
           <p
@@ -625,8 +640,7 @@ export default function AdminBiblioteca() {
               fontSize: '.88rem'
             }}
           >
-            Gerencie os trabalhos acadêmicos e as
-            pesquisas cadastradas no sistema.
+            Gerencie trabalhos acadêmicos, pesquisas, livros e empréstimos.
           </p>
         </div>
 
@@ -637,7 +651,7 @@ export default function AdminBiblioteca() {
           }}
         >
           <Link
-            to="/admin/biblioteca-painel"
+            to={rotas.painel}
             className="btn btn-outline"
           >
             📊 Retornar ao Painel
@@ -652,19 +666,30 @@ export default function AdminBiblioteca() {
             🌐 Ver página pública
           </a>
 
-          {abaAtiva === 'biblioteca' ? (
+          {abaAtiva === 'biblioteca' && (
             <Link
-              to="/admin/biblioteca/novo"
+              to={rotas.novoItem}
               className="btn btn-primario"
             >
               + Novo Item
             </Link>
-          ) : (
+          )}
+
+          {abaAtiva === 'pesquisas' && (
             <Link
-              to="/admin/biblioteca/pesquisa/nova"
+              to={rotas.novaPesquisa}
               className="btn btn-primario"
             >
               + Nova Pesquisa
+            </Link>
+          )}
+
+          {abaAtiva === 'acervo' && (
+            <Link
+              to={rotas.novoLivro}
+              className="btn btn-primario"
+            >
+              + Novo Livro
             </Link>
           )}
         </div>
@@ -711,6 +736,20 @@ export default function AdminBiblioteca() {
           }
         >
           🔎 Pesquisas
+        </button>
+
+        <button
+          type="button"
+          className={
+            abaAtiva === 'acervo'
+              ? 'btn btn-primario'
+              : 'btn btn-outline'
+          }
+          onClick={() =>
+            mudarAba('acervo')
+          }
+        >
+          📖 Acervo de livros
         </button>
       </div>
 
@@ -942,6 +981,11 @@ export default function AdminBiblioteca() {
                                   maxWidth: 240
                                 }}
                               >
+                                {item.codigo_referencia && (
+                                  <span className="acervo-referencia">
+                                    {item.codigo_referencia}
+                                  </span>
+                                )}
                                 {item.titulo}
                               </td>
 
@@ -1020,7 +1064,7 @@ export default function AdminBiblioteca() {
                                   </button>
 
                                   <Link
-                                    to={`/admin/biblioteca/novo?id=${item.id}`}
+                                    to={`${rotas.novoItem}?id=${item.id}`}
                                     className="btn btn-outline btn-sm"
                                   >
                                     ✏️ Editar
@@ -1292,6 +1336,11 @@ export default function AdminBiblioteca() {
                                     maxWidth: 360
                                   }}
                                 >
+                                  {item.codigo_referencia && (
+                                    <span className="acervo-referencia">
+                                      {item.codigo_referencia}
+                                    </span>
+                                  )}
                                   {item.titulo_trabalho ||
                                     '-'}
                                 </td>
@@ -1356,7 +1405,7 @@ export default function AdminBiblioteca() {
                                     </button>
 
                                     <Link
-                                      to={`/admin/biblioteca/pesquisa/nova?id=${item.id}`}
+                                      to={`${rotas.novaPesquisa}?id=${item.id}`}
                                       className="btn btn-outline btn-sm"
                                     >
                                       ✏️ Editar
@@ -1446,6 +1495,10 @@ export default function AdminBiblioteca() {
             </>
           )}
         </>
+      )}
+
+      {abaAtiva === 'acervo' && (
+        <AdminAcervoLivros />
       )}
 
       {/* =====================================================

@@ -37,6 +37,22 @@ export default function AdminFrequencia() {
     setPresencas(p => ({ ...p, [id]: { ...p[id], justificativa: v } }));
   }
 
+  function marcarTodos(presente) {
+    setPresencas(p => {
+      const atualizadas = { ...p };
+
+      inscritos.forEach(i => {
+        atualizadas[i.inscricao_id] = {
+          ...atualizadas[i.inscricao_id],
+          presente,
+          justificativa: atualizadas[i.inscricao_id]?.justificativa || '',
+        };
+      });
+
+      return atualizadas;
+    });
+  }
+
   async function salvar(e) {
     e.preventDefault();
     try {
@@ -78,6 +94,29 @@ export default function AdminFrequencia() {
               <span style={{ marginLeft:'auto', fontSize:'.82rem', color:'var(--cinza-500)' }}>{inscritos.length} inscritos</span>
             </div>
             <form onSubmit={salvar}>
+              <div style={{
+                display:'flex',
+                gap:10,
+                flexWrap:'wrap',
+                padding:'16px 24px',
+                borderBottom:'1px solid var(--cinza-200)',
+              }}>
+                <button
+                  type="button"
+                  className="btn btn-secundario"
+                  onClick={() => marcarTodos(true)}
+                >
+                  ✅ Marcar presença para todos
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => marcarTodos(false)}
+                >
+                  ❌ Marcar falta para todos
+                </button>
+              </div>
+
               <div style={{ paddingBottom:16 }}>
                 {inscritos.map(i => (
                   <div key={i.inscricao_id} style={{ display:'flex', alignItems:'center', gap:16, padding:'12px 24px', borderBottom:'1px solid var(--cinza-200)' }}>

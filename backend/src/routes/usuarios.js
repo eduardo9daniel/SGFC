@@ -46,26 +46,52 @@ router.get('/', auth('admin', 'coordenador', 'equipe'), async (req, res) => {
 
     const paramsCount = [];
 
-    if (req.user.tipo === 'coordenador') {
-      sql += ' AND u.tipo_usuario = ?';
-      params.push('participante');
+    /*
+  Coordenador e Equipe visualizam somente participantes.
+  Apenas o Admin pode consultar outros tipos de usuários.
+*/
+if (['coordenador', 'equipe'].includes(req.user.tipo)) {
+  sql += ' AND u.tipo_usuario = ?';
+  params.push('participante');
 
-      sqlCount += ' AND u.tipo_usuario = ?';
-      paramsCount.push('participante');
-    } else if (tipo) {
-      sql += ' AND u.tipo_usuario = ?';
-      params.push(tipo);
+  sqlCount += ' AND u.tipo_usuario = ?';
+  paramsCount.push('participante');
+} else if (tipo) {
+  sql += ' AND u.tipo_usuario = ?';
+  params.push(tipo);
 
-      sqlCount += ' AND u.tipo_usuario = ?';
-      paramsCount.push(tipo);
-    }
+  sqlCount += ' AND u.tipo_usuario = ?';
+  paramsCount.push(tipo);
+}
 
     if (busca) {
-      sql += ' AND (u.nome_completo LIKE ? OR u.email LIKE ? OR u.cpf LIKE ?)';
-      params.push(`%${busca}%`, `%${busca}%`, `%${busca}%`);
+      sql += `
+        AND (
+          u.nome_completo LIKE ?
+          OR u.email LIKE ?
+          OR u.cpf LIKE ?
+        )
+      `;
 
-      sqlCount += ' AND (u.nome_completo LIKE ? OR u.email LIKE ? OR u.cpf LIKE ?)';
-      paramsCount.push(`%${busca}%`, `%${busca}%`, `%${busca}%`);
+      params.push(
+        `%${busca}%`,
+        `%${busca}%`,
+        `%${busca}%`
+      );
+
+      sqlCount += `
+        AND (
+          u.nome_completo LIKE ?
+          OR u.email LIKE ?
+          OR u.cpf LIKE ?
+        )
+      `;
+
+      paramsCount.push(
+        `%${busca}%`,
+        `%${busca}%`,
+        `%${busca}%`
+      );
     }
 
     if (regiao_id) {
@@ -76,25 +102,34 @@ router.get('/', auth('admin', 'coordenador', 'equipe'), async (req, res) => {
       paramsCount.push(regiao_id);
     }
 
-    const [[{ total }]] = await db.query(sqlCount, paramsCount);
-
-    const [rows] = await db.query(
-      sql + ' ORDER BY u.nome_completo LIMIT ? OFFSET ?',
-      [...params, porPagina, offset]
+    const [[{ total }]] = await db.query(
+      sqlCount,
+      paramsCount
     );
 
-    res.json({
+    const [rows] = await db.query(
+      `${sql}
+       ORDER BY u.nome_completo
+       LIMIT ?
+       OFFSET ?`,
+      [
+        ...params,
+        porPagina,
+        offset
+      ]
+    );
+
+    return res.json({
       ok: true,
       data: rows,
       total,
       pagina,
       totalPaginas: Math.ceil(total / porPagina)
     });
-
   } catch (err) {
     console.error('Erro ao listar usuários:', err);
 
-    res.status(500).json({
+    return res.status(500).json({
       ok: false,
       erro: 'Erro ao listar usuários.'
     });
@@ -131,7 +166,13 @@ router.post('/', auth('admin', 'coordenador'), async (req, res) => {
       });
     }
 
-    const tiposPermitidos = ['admin', 'coordenador', 'equipe', 'participante'];
+    const tiposPermitidos = [
+      'admin',
+      'coordenador',
+      'equipe',
+      'participante'
+    ];
+
     const tipoFinal = tipo_usuario || 'participante';
 
     if (!tiposPermitidos.includes(tipoFinal)) {
@@ -141,17 +182,20 @@ router.post('/', auth('admin', 'coordenador'), async (req, res) => {
       });
     }
 
-    if (req.user.tipo === 'coordenador' && tipoFinal === 'admin') {
-      return res.status(403).json({
-        ok: false,
-        erro: 'Coordenador não pode criar Admin.'
-      });
-    }
+    /*
+      O Admin possui controle institucional e pode cadastrar
+      qualquer perfil.
 
-    if (req.user.tipo === 'coordenador' && tipoFinal === 'coordenador') {
+      O Coordenador possui função operacional e pode cadastrar
+      somente participantes.
+    */
+    if (
+      req.user.tipo === 'coordenador' &&
+      tipoFinal !== 'participante'
+    ) {
       return res.status(403).json({
         ok: false,
-        erro: 'Coordenador não pode criar outro Coordenador.'
+        erro: 'Coordenador pode cadastrar somente participantes.'
       });
     }
 
@@ -173,19 +217,26 @@ router.post('/', auth('admin', 'coordenador'), async (req, res) => {
 
     const emailNormalizado = normalizarEmail(email);
 
-    const [dup] = await db.query(
-      'SELECT id FROM usuarios WHERE LOWER(email) = ? OR cpf = ?',
-      [emailNormalizado, cpf]
+    const [duplicados] = await db.query(
+      `SELECT id
+       FROM usuarios
+       WHERE LOWER(email) = ?
+       OR cpf = ?
+       LIMIT 1`,
+      [
+        emailNormalizado,
+        cpf
+      ]
     );
 
-    if (dup.length) {
+    if (duplicados.length) {
       return res.status(409).json({
         ok: false,
         erro: 'E-mail ou CPF já cadastrado.'
       });
     }
 
-    const hash = await bcrypt.hash(senha, 12);
+    const senhaHash = await bcrypt.hash(senha, 12);
 
     const primeiroAcessoFinal =
       primeiro_acesso === true ||
@@ -196,17 +247,17 @@ router.post('/', auth('admin', 'coordenador'), async (req, res) => {
         : 0;
 
     const [result] = await db.query(
-      `INSERT INTO usuarios 
+      `INSERT INTO usuarios
        (
-        nome_completo, 
-        email, 
-        cpf, 
-        telefone, 
-        data_nascimento,
-        regiao_id,
-        tipo_usuario, 
-        senha_hash,
-        primeiro_acesso
+         nome_completo,
+         email,
+         cpf,
+         telefone,
+         data_nascimento,
+         regiao_id,
+         tipo_usuario,
+         senha_hash,
+         primeiro_acesso
        )
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -217,13 +268,20 @@ router.post('/', auth('admin', 'coordenador'), async (req, res) => {
         data_nascimento || null,
         regiaoIdFinal,
         tipoFinal,
-        hash,
+        senhaHash,
         primeiroAcessoFinal
       ]
     );
 
     await db.query(
-      'INSERT INTO logs_atividades (usuario_id, acao, descricao, ip) VALUES (?,?,?,?)',
+      `INSERT INTO logs_atividades
+       (
+         usuario_id,
+         acao,
+         descricao,
+         ip
+       )
+       VALUES (?, ?, ?, ?)`,
       [
         req.user.id,
         'criar_usuario',
@@ -232,17 +290,16 @@ router.post('/', auth('admin', 'coordenador'), async (req, res) => {
       ]
     );
 
-    res.status(201).json({
+    return res.status(201).json({
       ok: true,
       id: result.insertId,
-      primeiro_acesso: !!primeiroAcessoFinal,
+      primeiro_acesso: Boolean(primeiroAcessoFinal),
       regiao_id: regiaoIdFinal
     });
-
   } catch (err) {
     console.error('Erro ao criar usuário:', err);
 
-    res.status(500).json({
+    return res.status(500).json({
       ok: false,
       erro: 'Erro ao criar usuário.'
     });
@@ -250,7 +307,7 @@ router.post('/', auth('admin', 'coordenador'), async (req, res) => {
 });
 
 // PUT /api/usuarios/me
-router.put('/me', auth('participante'), async (req, res) => {
+router.put('/me', auth('participante', 'equipe'), async (req, res) => {
   try {
     const {
       nome_completo,
@@ -267,45 +324,67 @@ router.put('/me', auth('participante'), async (req, res) => {
       });
     }
 
-    const regiaoIdFinal = await obterOuCriarRegiaoId({
-      regiao_id,
-      regiao_nome
+    let regiaoIdFinal = null;
+
+if (req.user.tipo === 'participante') {
+  regiaoIdFinal = await obterOuCriarRegiaoId({
+    regiao_id,
+    regiao_nome
+  });
+
+  if (!regiaoIdFinal) {
+    return res.status(400).json({
+      ok: false,
+      erro: 'Informe uma região válida para o participante.'
     });
+  }
 
-    if (!regiaoIdFinal) {
-      return res.status(400).json({
-        ok: false,
-        erro: 'Informe uma região válida para o participante.'
-      });
-    }
-
-    await db.query(
-      `UPDATE usuarios
-       SET nome_completo = ?,
-           telefone = ?,
-           data_nascimento = ?,
-           regiao_id = ?
-       WHERE id = ? 
-       AND tipo_usuario = 'participante'`,
-      [
-        nome_completo.trim(),
-        telefone || null,
-        data_nascimento || null,
-        regiaoIdFinal,
-        req.user.id
-      ]
-    );
-
-    res.json({
+  await db.query(
+    `UPDATE usuarios
+     SET
+       nome_completo = ?,
+       telefone = ?,
+       data_nascimento = ?,
+       regiao_id = ?
+     WHERE id = ?
+     AND tipo_usuario = 'participante'`,
+    [
+      nome_completo.trim(),
+      telefone || null,
+      data_nascimento || null,
+      regiaoIdFinal,
+      req.user.id
+    ]
+  );
+} else {
+  await db.query(
+    `UPDATE usuarios
+     SET
+       nome_completo = ?,
+       telefone = ?,
+       data_nascimento = ?
+     WHERE id = ?
+     AND tipo_usuario = 'equipe'`,
+    [
+      nome_completo.trim(),
+      telefone || null,
+      data_nascimento || null,
+      req.user.id
+    ]
+  );
+}
+    return res.json({
       ok: true,
       mensagem: 'Perfil atualizado com sucesso.',
       regiao_id: regiaoIdFinal
     });
-
   } catch (err) {
-    console.error('Erro ao atualizar perfil do participante:', err);
+    console.error(
+      'Erro ao atualizar perfil do participante:',
+      err
+    );
 
-    res.status(500).json({
+    return res.status(500).json({
       ok: false,
       erro: 'Erro ao atualizar perfil.'
     });
@@ -313,202 +392,384 @@ router.put('/me', auth('participante'), async (req, res) => {
 });
 
 // PUT /api/usuarios/:id/toggle-status
-router.put('/:id/toggle-status', auth('admin'), async (req, res) => {
-  try {
-    await db.query(
-      "UPDATE usuarios SET status = 1 - status WHERE id = ? AND tipo_usuario != 'admin'",
-      [req.params.id]
-    );
+router.put(
+  '/:id/toggle-status',
+  auth('admin'),
+  async (req, res) => {
+    try {
+      const usuarioId = Number(req.params.id);
 
-    res.json({ ok: true });
+      if (!Number.isInteger(usuarioId) || usuarioId <= 0) {
+        return res.status(400).json({
+          ok: false,
+          erro: 'Usuário inválido.'
+        });
+      }
 
-  } catch (err) {
-    console.error('Erro ao alterar status do usuário:', err);
+      if (usuarioId === Number(req.user.id)) {
+        return res.status(400).json({
+          ok: false,
+          erro: 'Você não pode alterar o status do próprio usuário.'
+        });
+      }
 
-    res.status(500).json({
-      ok: false,
-      erro: 'Erro ao alterar status do usuário.'
-    });
+      const [[usuario]] = await db.query(
+        `SELECT
+           id,
+           tipo_usuario,
+           status
+         FROM usuarios
+         WHERE id = ?
+         LIMIT 1`,
+        [usuarioId]
+      );
+
+      if (!usuario) {
+        return res.status(404).json({
+          ok: false,
+          erro: 'Usuário não encontrado.'
+        });
+      }
+
+      if (usuario.tipo_usuario === 'admin') {
+        return res.status(403).json({
+          ok: false,
+          erro: 'Não é permitido alterar o status de um administrador.'
+        });
+      }
+
+      await db.query(
+        `UPDATE usuarios
+         SET status = 1 - status
+         WHERE id = ?`,
+        [usuarioId]
+      );
+
+      await db.query(
+        `INSERT INTO logs_atividades
+         (
+           usuario_id,
+           acao,
+           descricao,
+           ip
+         )
+         VALUES (?, ?, ?, ?)`,
+        [
+          req.user.id,
+          'alterar_status_usuario',
+          `Status do usuário #${usuarioId} alterado pelo admin #${req.user.id}`,
+          req.ip
+        ]
+      );
+
+      return res.json({
+        ok: true
+      });
+    } catch (err) {
+      console.error(
+        'Erro ao alterar status do usuário:',
+        err
+      );
+
+      return res.status(500).json({
+        ok: false,
+        erro: 'Erro ao alterar status do usuário.'
+      });
+    }
   }
-});
+);
 
 // PUT /api/usuarios/:id/resetar-senha
-router.put('/:id/resetar-senha', auth('admin'), async (req, res) => {
-  try {
-    const nova = 'Darcy@' + Math.floor(1000 + Math.random() * 9000);
-    const hash = await bcrypt.hash(nova, 12);
+router.put(
+  '/:id/resetar-senha',
+  auth('admin'),
+  async (req, res) => {
+    try {
+      const usuarioId = Number(req.params.id);
 
-    await db.query(
-      'UPDATE usuarios SET senha_hash = ?, primeiro_acesso = 1 WHERE id = ?',
-      [hash, req.params.id]
-    );
+      if (!Number.isInteger(usuarioId) || usuarioId <= 0) {
+        return res.status(400).json({
+          ok: false,
+          erro: 'Usuário inválido.'
+        });
+      }
 
-    res.json({
-      ok: true,
-      novaSenha: nova,
-      primeiro_acesso: true
-    });
+      const [[usuario]] = await db.query(
+        `SELECT
+           id,
+           nome_completo,
+           tipo_usuario
+         FROM usuarios
+         WHERE id = ?
+         LIMIT 1`,
+        [usuarioId]
+      );
 
-  } catch (err) {
-    console.error('Erro ao resetar senha:', err);
+      if (!usuario) {
+        return res.status(404).json({
+          ok: false,
+          erro: 'Usuário não encontrado.'
+        });
+      }
 
-    res.status(500).json({
-      ok: false,
-      erro: 'Erro ao resetar senha.'
-    });
+      const novaSenha =
+        `Darcy@${Math.floor(1000 + Math.random() * 9000)}`;
+
+      const senhaHash = await bcrypt.hash(novaSenha, 12);
+
+      /*
+        A senha é alterada e o primeiro acesso permanece desativado.
+        O usuário poderá entrar diretamente utilizando a nova senha.
+      */
+      await db.query(
+        `UPDATE usuarios
+         SET
+           senha_hash = ?,
+           primeiro_acesso = 0,
+           codigo_primeiro_acesso_hash = NULL,
+           codigo_primeiro_acesso_expira_em = NULL
+         WHERE id = ?`,
+        [
+          senhaHash,
+          usuarioId
+        ]
+      );
+
+      await db.query(
+        `INSERT INTO logs_atividades
+         (
+           usuario_id,
+           acao,
+           descricao,
+           ip
+         )
+         VALUES (?, ?, ?, ?)`,
+        [
+          req.user.id,
+          'redefinir_senha_usuario',
+          `Senha do usuário #${usuario.id} (${usuario.nome_completo}, ${usuario.tipo_usuario}) redefinida pelo admin #${req.user.id}`,
+          req.ip
+        ]
+      );
+
+      return res.json({
+        ok: true,
+        novaSenha,
+        primeiro_acesso: false,
+        mensagem: 'Senha redefinida com sucesso.'
+      });
+    } catch (err) {
+      console.error('Erro ao redefinir senha:', err);
+
+      return res.status(500).json({
+        ok: false,
+        erro: 'Erro ao redefinir senha.'
+      });
+    }
   }
-});
+);
 
 // GET /api/usuarios/dashboard
-router.get('/dashboard', auth('admin', 'coordenador', 'equipe'), async (req, res) => {
-  try {
-    const [[tp]] = await db.query(
-      "SELECT COUNT(*) AS v FROM usuarios WHERE tipo_usuario='participante' AND status=1"
-    );
+router.get(
+  '/dashboard',
+  auth('admin', 'coordenador', 'equipe'),
+  async (req, res) => {
+    try {
+      const [[tp]] = await db.query(
+        `SELECT COUNT(*) AS v
+         FROM usuarios
+         WHERE tipo_usuario = 'participante'
+         AND status = 1`
+      );
 
-    const [[tf]] = await db.query(
-      "SELECT COUNT(*) AS v FROM formacoes"
-    );
+      const [[tf]] = await db.query(
+        `SELECT COUNT(*) AS v
+         FROM formacoes`
+      );
 
-    const [[fa]] = await db.query(
-      "SELECT COUNT(*) AS v FROM formacoes WHERE status='aberta'"
-    );
+      const [[fa]] = await db.query(
+        `SELECT COUNT(*) AS v
+         FROM formacoes
+         WHERE status = 'aberta'`
+      );
 
-    const [[ti]] = await db.query(
-      "SELECT COUNT(*) AS v FROM inscricoes WHERE status='confirmada'"
-    );
+      const [[ti]] = await db.query(
+        `SELECT COUNT(*) AS v
+         FROM inscricoes
+         WHERE status = 'confirmada'`
+      );
 
-    const [[tc]] = await db.query(
-      "SELECT COUNT(*) AS v FROM certificados"
-    );
+      const [[tc]] = await db.query(
+        `SELECT COUNT(*) AS v
+         FROM certificados`
+      );
 
-    const [[tpc]] = await db.query(
-    `SELECT COUNT(*) AS v
-    FROM propostas_formacao
-    WHERE status = 'confirmada'`
-   );
+      const [[tpc]] = await db.query(
+        `SELECT COUNT(*) AS v
+         FROM propostas_formacao
+         WHERE status = 'confirmada'`
+      );
 
-    const [[tb]] = await db.query(
-      `SELECT COUNT(*) AS v
-       FROM biblioteca_itens
-       WHERE ativo = 1`
-    );
+      const [[tb]] = await db.query(
+        `SELECT COUNT(*) AS v
+         FROM biblioteca_itens
+         WHERE ativo = 1`
+      );
 
-    const [[ta]] = await db.query(
-      `SELECT COUNT(DISTINCT autor) AS v
-       FROM biblioteca_itens
-       WHERE ativo = 1`
-    );
+      const [[ta]] = await db.query(
+        `SELECT COUNT(DISTINCT autor) AS v
+         FROM biblioteca_itens
+         WHERE ativo = 1`
+      );
 
-    const [[tm]] = await db.query(
-      `SELECT COUNT(*) AS v
-       FROM biblioteca_itens
-       WHERE ativo = 1
-       AND criado_em >= DATE_SUB(NOW(), INTERVAL 30 DAY)`
-    );
+      const [[tm]] = await db.query(
+        `SELECT COUNT(*) AS v
+         FROM biblioteca_itens
+         WHERE ativo = 1
+         AND criado_em >= DATE_SUB(NOW(), INTERVAL 30 DAY)`
+      );
 
-    const [fr] = await db.query(
-      "SELECT * FROM formacoes ORDER BY criado_em DESC LIMIT 5"
-    );
+      const [formacoesRecentes] = await db.query(
+        `SELECT *
+         FROM formacoes
+         ORDER BY criado_em DESC
+         LIMIT 5`
+      );
 
-    const [acessosPorRegiao] = await db.query(`
-      SELECT 
-        COALESCE(r.nome, 'Sem região') AS regiao,
-        COUNT(l.id) AS acessos,
-        COUNT(DISTINCT u.id) AS pessoas
-      FROM logs_atividades l
-      JOIN usuarios u ON u.id = l.usuario_id
-      LEFT JOIN regioes r ON r.id = u.regiao_id
-      WHERE l.acao = 'login'
-        AND u.tipo_usuario = 'participante'
-      GROUP BY COALESCE(r.nome, 'Sem região')
-      ORDER BY acessos DESC, pessoas DESC, regiao ASC
-    `);
+      const [acessosPorRegiao] = await db.query(
+        `SELECT
+           COALESCE(r.nome, 'Sem região') AS regiao,
+           COUNT(l.id) AS acessos,
+           COUNT(DISTINCT u.id) AS pessoas
+         FROM logs_atividades l
+         JOIN usuarios u
+           ON u.id = l.usuario_id
+         LEFT JOIN regioes r
+           ON r.id = u.regiao_id
+         WHERE l.acao = 'login'
+         AND u.tipo_usuario = 'participante'
+         GROUP BY COALESCE(r.nome, 'Sem região')
+         ORDER BY
+           acessos DESC,
+           pessoas DESC,
+           regiao ASC`
+      );
 
-    res.json({
-      ok: true,
-      data: {
-        total_participantes: tp.v,
-        total_formacoes: tf.v,
-        formacoes_abertas: fa.v,
-        propostas_confirmadas: tpc.v,
-        total_inscricoes: ti.v,
-        certificados_emitidos: tc.v,
+      return res.json({
+        ok: true,
+        data: {
+          total_participantes: tp.v,
+          total_formacoes: tf.v,
+          formacoes_abertas: fa.v,
+          propostas_confirmadas: tpc.v,
+          total_inscricoes: ti.v,
+          certificados_emitidos: tc.v,
 
-        totalItensBiblioteca: tb.v,
-        totalAutoresBiblioteca: ta.v,
-        itensBibliotecaMes: tm.v,
+          totalItensBiblioteca: tb.v,
+          totalAutoresBiblioteca: ta.v,
+          itensBibliotecaMes: tm.v,
 
-        formacoes_recentes: fr,
-        acessos_por_regiao: acessosPorRegiao
-      }
-    });
+          formacoes_recentes: formacoesRecentes,
+          acessos_por_regiao: acessosPorRegiao
+        }
+      });
+    } catch (err) {
+      console.error(
+        'Erro no dashboard de usuários:',
+        err
+      );
 
-  } catch (err) {
-    console.error('Erro no dashboard de usuários:', err);
-
-    res.status(500).json({
-      ok: false,
-      erro: 'Erro ao carregar dashboard.'
-    });
+      return res.status(500).json({
+        ok: false,
+        erro: 'Erro ao carregar dashboard.'
+      });
+    }
   }
-});
+);
 
 // GET /api/usuarios/dashboard/participante
-router.get('/dashboard/participante', auth('participante'), async (req, res) => {
-  try {
-    const uid = req.user.id;
+router.get(
+  '/dashboard/participante',
+  auth('participante'),
+  async (req, res) => {
+    try {
+      const usuarioId = req.user.id;
 
-    const [inscricoes] = await db.query(
-      `SELECT 
-        i.*, 
-        f.titulo, 
-        f.data_inicio, 
-        f.data_fim, 
-        f.carga_horaria, 
-        f.local, 
-        f.status AS status_formacao
-       FROM inscricoes i 
-       JOIN formacoes f ON f.id = i.formacao_id
-       WHERE i.usuario_id = ? 
-       ORDER BY f.data_inicio DESC`,
-      [uid]
-    );
+      const [inscricoes] = await db.query(
+        `SELECT
+           i.*,
+           f.titulo,
+           f.data_inicio,
+           f.data_fim,
+           f.carga_horaria,
+           f.local,
+           f.status AS status_formacao
+         FROM inscricoes i
+         JOIN formacoes f
+           ON f.id = i.formacao_id
+         WHERE i.usuario_id = ?
+         ORDER BY f.data_inicio DESC`,
+        [usuarioId]
+      );
 
-    const [[{ tc }]] = await db.query(
-      `SELECT COUNT(*) AS tc 
-       FROM certificados c 
-       JOIN inscricoes i ON i.id = c.inscricao_id 
-       WHERE i.usuario_id = ?`,
-      [uid]
-    );
+      const [[{ total_certificados }]] = await db.query(
+        `SELECT COUNT(*) AS total_certificados
+         FROM certificados c
+         JOIN inscricoes i
+           ON i.id = c.inscricao_id
+         WHERE i.usuario_id = ?`,
+        [usuarioId]
+      );
 
-    res.json({
-      ok: true,
-      data: {
-        inscricoes,
-        total_certificados: tc
-      }
-    });
+      return res.json({
+        ok: true,
+        data: {
+          inscricoes,
+          total_certificados
+        }
+      });
+    } catch (err) {
+      console.error(
+        'Erro no dashboard do participante:',
+        err
+      );
 
-  } catch (err) {
-    console.error('Erro no dashboard do participante:', err);
-
-    res.status(500).json({
-      ok: false,
-      erro: 'Erro ao carregar dashboard do participante.'
-    });
+      return res.status(500).json({
+        ok: false,
+        erro: 'Erro ao carregar dashboard do participante.'
+      });
+    }
   }
-});
+);
 
 // DELETE /api/usuarios/:id
 router.delete('/:id', auth('admin'), async (req, res) => {
   try {
-    const { id } = req.params;
+    const usuarioId = Number(req.params.id);
+
+    if (!Number.isInteger(usuarioId) || usuarioId <= 0) {
+      return res.status(400).json({
+        ok: false,
+        erro: 'Usuário inválido.'
+      });
+    }
+
+    if (usuarioId === Number(req.user.id)) {
+      return res.status(400).json({
+        ok: false,
+        erro: 'Você não pode excluir seu próprio usuário.'
+      });
+    }
 
     const [[usuario]] = await db.query(
-      'SELECT tipo_usuario FROM usuarios WHERE id = ?',
-      [id]
+      `SELECT
+         id,
+         nome_completo,
+         tipo_usuario
+       FROM usuarios
+       WHERE id = ?
+       LIMIT 1`,
+      [usuarioId]
     );
 
     if (!usuario) {
@@ -519,40 +780,43 @@ router.delete('/:id', auth('admin'), async (req, res) => {
     }
 
     if (usuario.tipo_usuario === 'admin') {
-      return res.status(400).json({
+      return res.status(403).json({
         ok: false,
-        erro: 'Não é permitido excluir admin.'
-      });
-    }
-
-    if (Number(id) === Number(req.user.id)) {
-      return res.status(400).json({
-        ok: false,
-        erro: 'Você não pode excluir seu próprio usuário.'
+        erro: 'Não é permitido excluir um administrador.'
       });
     }
 
     await db.query(
-      'DELETE FROM usuarios WHERE id = ?',
-      [id]
+      `DELETE FROM usuarios
+       WHERE id = ?`,
+      [usuarioId]
     );
 
     await db.query(
-      'INSERT INTO logs_atividades (usuario_id, acao, descricao, ip) VALUES (?,?,?,?)',
+      `INSERT INTO logs_atividades
+       (
+         usuario_id,
+         acao,
+         descricao,
+         ip
+       )
+       VALUES (?, ?, ?, ?)`,
       [
         req.user.id,
         'excluir_usuario',
-        `Usuário #${id} excluído por ${req.user.tipo} #${req.user.id}`,
+        `Usuário #${usuarioId} (${usuario.nome_completo}, ${usuario.tipo_usuario}) excluído pelo admin #${req.user.id}`,
         req.ip
       ]
     );
 
-    res.json({ ok: true });
-
+    return res.json({
+      ok: true,
+      mensagem: 'Usuário excluído com sucesso.'
+    });
   } catch (err) {
     console.error('Erro ao excluir usuário:', err);
 
-    res.status(500).json({
+    return res.status(500).json({
       ok: false,
       erro: 'Erro ao excluir usuário.'
     });

@@ -240,8 +240,7 @@ export default function AdminDashboard() {
       detalhe: 'Disponíveis para novas inscrições',
       cor: 'verde',
       to: '/admin/formacoes'
-    },
-    {
+    },    {
   icon: '📖',
   valor: stats.totalItensBiblioteca || 0,
   label: 'Itens da Biblioteca',

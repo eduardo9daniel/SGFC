@@ -1,5 +1,5 @@
 import AdminFormacoes from '../admin/Formacoes';
 
 export default function CoordenadorFormacoes() {
-  return <AdminFormacoes />;
+  return <AdminFormacoes podeExcluir={false} />;
 }

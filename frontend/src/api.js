@@ -1,50 +1,80 @@
 import axios from 'axios';
 
-const api = axios.create({ baseURL: '/api' });
+const api = axios.create({
+  baseURL: '/api'
+});
 
-api.interceptors.request.use(cfg => {
+api.interceptors.request.use(config => {
   const token = localStorage.getItem('token');
-  if (token) cfg.headers.Authorization = `Bearer ${token}`;
-  return cfg;
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
 });
 
 api.interceptors.response.use(
-  r => r,
-  err => {
-    const status = err.response?.status;
-    const data = err.response?.data;
+  response => response,
 
-    // 🔒 Token inválido ou expirado
+  error => {
+    const status = error.response?.status;
+    const data = error.response?.data;
+
+    // Token inválido ou expirado
     if (status === 401) {
-  localStorage.removeItem('token');
-  localStorage.removeItem('user');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
 
-  const rotaAtual = window.location.pathname;
+      const rotaAtual = window.location.pathname;
 
-  const rotasPublicas = [
-    '/',
-    '/login',
-    '/cadastro',
-    '/biblioteca',
-    '/validar-certificado',
-    '/primeiro-acesso'
-  ];
+      const rotasPublicas = [
+        '/',
+        '/login',
+        '/cadastro',
+        '/biblioteca',
+        '/validar-certificado',
+        '/primeiro-acesso'
+      ];
 
-  const ehRotaPublica =
-    rotasPublicas.includes(rotaAtual) ||
-    rotaAtual.startsWith('/validar/');
+      const ehRotaPublica =
+        rotasPublicas.includes(rotaAtual) ||
+        rotaAtual.startsWith('/validar/');
 
-  if (!ehRotaPublica) {
-    window.location.href = '/login';
-  }
-}
-
-    // 🔑 Primeiro acesso pendente
-    if (status === 403 && data?.primeiro_acesso) {
-      window.location.href = '/primeiro-acesso';
+      if (!ehRotaPublica) {
+        window.location.href = '/login';
+      }
     }
 
-    return Promise.reject(err);
+    // Primeiro acesso pendente
+    if (status === 403 && data?.primeiro_acesso) {
+      try {
+        const usuarioSalvo = localStorage.getItem('user');
+
+        if (usuarioSalvo) {
+          const usuario = JSON.parse(usuarioSalvo);
+
+          localStorage.setItem(
+            'user',
+            JSON.stringify({
+              ...usuario,
+              primeiro_acesso: true
+            })
+          );
+        }
+      } catch (erro) {
+        console.error(
+          'Erro ao atualizar o primeiro acesso local:',
+          erro
+        );
+      }
+
+      if (window.location.pathname !== '/primeiro-acesso') {
+        window.location.href = '/primeiro-acesso';
+      }
+    }
+
+    return Promise.reject(error);
   }
 );
 

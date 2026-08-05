@@ -1,6 +1,10 @@
 const express = require('express');
 const db = require('../config/db');
 const auth = require('../middleware/auth');
+const {
+  gerarCodigoReferencia,
+  prefixoPorTipoTrabalho
+} = require('../utils/referenciasBiblioteca');
 
 const publicRouter = express.Router();
 const adminRouter = express.Router();
@@ -105,6 +109,7 @@ publicRouter.get('/', async (req, res) => {
     let sql = `
       SELECT 
         bi.id,
+        bi.codigo_referencia,
         bi.titulo,
         bi.autor,
         bi.cargo,
@@ -125,7 +130,8 @@ publicRouter.get('/', async (req, res) => {
     if (busca) {
       sql += `
         AND (
-          bi.titulo LIKE ?
+          bi.codigo_referencia LIKE ?
+          OR bi.titulo LIKE ?
           OR bi.autor LIKE ?
           OR bi.cargo LIKE ?
           OR bi.instituicao LIKE ?
@@ -135,7 +141,7 @@ publicRouter.get('/', async (req, res) => {
       `;
 
       const termo = `%${busca}%`;
-      params.push(termo, termo, termo, termo, termo, termo);
+      params.push(termo, termo, termo, termo, termo, termo, termo);
     }
 
     if (tipo_trabalho) {
@@ -212,6 +218,7 @@ adminRouter.get('/', auth('admin', 'coordenador'), async (req, res) => {
     let sql = `
       SELECT 
         bi.id,
+        bi.codigo_referencia,
         bi.titulo,
         bi.autor,
         bi.cargo,
@@ -234,7 +241,8 @@ adminRouter.get('/', auth('admin', 'coordenador'), async (req, res) => {
     if (busca) {
       sql += `
         AND (
-          bi.titulo LIKE ?
+          bi.codigo_referencia LIKE ?
+          OR bi.titulo LIKE ?
           OR bi.autor LIKE ?
           OR bi.cargo LIKE ?
           OR bi.instituicao LIKE ?
@@ -244,7 +252,7 @@ adminRouter.get('/', auth('admin', 'coordenador'), async (req, res) => {
       `;
 
       const termo = `%${busca}%`;
-      params.push(termo, termo, termo, termo, termo, termo);
+      params.push(termo, termo, termo, termo, termo, termo, termo);
     }
 
     sql += `
@@ -325,10 +333,16 @@ adminRouter.post('/', auth('admin', 'coordenador'), async (req, res) => {
       palavras_chave
     } = req.body;
 
+    const prefixo = prefixoPorTipoTrabalho(tipo_trabalho);
+    const codigoReferencia = prefixo
+      ? await gerarCodigoReferencia(connection, prefixo)
+      : null;
+
     const [result] = await connection.query(
       `
       INSERT INTO biblioteca_itens
       (
+        codigo_referencia,
         titulo,
         autor,
         cargo,
@@ -339,9 +353,10 @@ adminRouter.post('/', auth('admin', 'coordenador'), async (req, res) => {
         criado_por,
         ativo
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
       `,
       [
+        codigoReferencia,
         titulo,
         autor,
         cargo,
@@ -406,10 +421,46 @@ adminRouter.put('/:id', auth('admin', 'coordenador'), async (req, res) => {
       ativo
     } = req.body;
 
+    const [itensExistentes] = await connection.query(
+      `
+      SELECT codigo_referencia
+      FROM biblioteca_itens
+      WHERE id = ?
+      FOR UPDATE
+      `,
+      [req.params.id]
+    );
+
+    if (!itensExistentes.length) {
+      await connection.rollback();
+      return res.status(404).json({
+        ok: false,
+        erro: 'Item não encontrado.'
+      });
+    }
+
+    const prefixo = prefixoPorTipoTrabalho(tipo_trabalho);
+    const codigoAtual = itensExistentes[0].codigo_referencia;
+    const prefixoAtual = codigoAtual
+      ? String(codigoAtual).split('-')[0]
+      : null;
+
+    let codigoReferencia = codigoAtual;
+
+    if (!prefixo) {
+      codigoReferencia = null;
+    } else if (!codigoAtual || prefixoAtual !== prefixo) {
+      codigoReferencia = await gerarCodigoReferencia(
+        connection,
+        prefixo
+      );
+    }
+
     await connection.query(
       `
       UPDATE biblioteca_itens
       SET 
+        codigo_referencia = ?,
         titulo = ?,
         autor = ?,
         cargo = ?,
@@ -421,6 +472,7 @@ adminRouter.put('/:id', auth('admin', 'coordenador'), async (req, res) => {
       WHERE id = ?
       `,
       [
+        codigoReferencia,
         titulo,
         autor,
         cargo,
@@ -458,7 +510,7 @@ adminRouter.put('/:id', auth('admin', 'coordenador'), async (req, res) => {
 
 // DELETE /api/admin/biblioteca/:id
 // Exclusão lógica: apenas desativa o item.
-adminRouter.delete('/:id', auth('admin'), async (req, res) => {
+adminRouter.delete('/:id', auth('admin', 'coordenador'), async (req, res) => {
   try {
     await db.query(
       'UPDATE biblioteca_itens SET ativo = 0 WHERE id = ?',
