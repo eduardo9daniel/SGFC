@@ -13,6 +13,7 @@ export default function AdminFrequencia() {
   const [historico, setHistorico] = useState([]);
   const [presencas, setPresencas] = useState({});
   const [loading, setLoading] = useState(false);
+  const [frequenciaRegistrada, setFrequenciaRegistrada] = useState(false);
 
   useEffect(() => { api.get('/formacoes').then(r => setFormacoes(r.data.data)); }, []);
 
@@ -22,6 +23,7 @@ export default function AdminFrequencia() {
     const { data: d } = await api.get(`/frequencias?formacao_id=${fid}&data_aula=${data}`);
     setInscritos(d.data.inscritos);
     setHistorico(d.data.historico);
+    setFrequenciaRegistrada(!!d.data.frequenciaRegistrada);
     const p = {};
     d.data.inscritos.forEach(i => {
       p[i.inscricao_id] = { presente: !!i.ja_presente, justificativa: i.justificativa||'' };
@@ -94,6 +96,24 @@ export default function AdminFrequencia() {
               <span style={{ marginLeft:'auto', fontSize:'.82rem', color:'var(--cinza-500)' }}>{inscritos.length} inscritos</span>
             </div>
             <form onSubmit={salvar}>
+
+              {frequenciaRegistrada && (
+            <div
+              style={{
+              margin: '16px 24px 0',
+              padding: '14px 16px',
+              borderRadius: 10,
+              background: '#fff8e1',
+              border: '1px solid #f0c36d',
+              color: '#7a5200',
+              fontWeight: 600,
+              fontSize: '.9rem'
+            }}
+            >
+              🔒 Frequência já registrada para esta formação nesta data.
+              A chamada está disponível apenas para consulta.
+            </div>
+          )}
               <div style={{
                 display:'flex',
                 gap:10,
@@ -105,6 +125,7 @@ export default function AdminFrequencia() {
                   type="button"
                   className="btn btn-secundario"
                   onClick={() => marcarTodos(true)}
+                  disabled={frequenciaRegistrada}
                 >
                   ✅ Marcar presença para todos
                 </button>
@@ -112,6 +133,7 @@ export default function AdminFrequencia() {
                   type="button"
                   className="btn btn-outline"
                   onClick={() => marcarTodos(false)}
+                  disabled={frequenciaRegistrada}
                 >
                   ❌ Marcar falta para todos
                 </button>
@@ -123,6 +145,7 @@ export default function AdminFrequencia() {
                     <label style={{ display:'flex', alignItems:'center', gap:12, flex:1, cursor:'pointer' }}>
                       <input type="checkbox" checked={!!presencas[i.inscricao_id]?.presente}
                         onChange={() => togglePresenca(i.inscricao_id)}
+                        disabled={frequenciaRegistrada}
                         style={{ width:20, height:20, accentColor:'var(--verde)', cursor:'pointer' }} />
                       <div>
                         <div style={{ fontWeight:600, fontSize:'.92rem' }}>{i.nome_completo}</div>
@@ -137,7 +160,22 @@ export default function AdminFrequencia() {
                 ))}
               </div>
               <div style={{ padding:'16px 24px', borderTop:'2px solid var(--cinza-200)', display:'flex', justifyContent:'flex-end' }}>
-                <button type="submit" className="btn btn-primario btn-lg">💾 Salvar Frequência</button>
+                {frequenciaRegistrada ? (
+              <button
+                type="button"
+                className="btn btn-outline btn-lg"
+                disabled
+              >
+                🔒 Frequência já registrada
+              </button>
+            ) : (
+              <button
+                type="submit"
+                className="btn btn-primario btn-lg"
+              >
+                💾 Salvar Frequência
+              </button>
+            )}
               </div>
             </form>
           </div>

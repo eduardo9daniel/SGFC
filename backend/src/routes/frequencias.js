@@ -26,7 +26,19 @@ router.get('/', auth('admin', 'coordenador', 'equipe'), async (req, res) => {
     [formacao_id]
   );
 
-  res.json({ ok: true, data: { inscritos, historico } });
+  const [registroExistente] = await db.query(
+  `SELECT COUNT(*) AS total
+   FROM frequencias f
+   JOIN inscricoes i ON i.id = f.inscricao_id
+   WHERE i.formacao_id = ?
+     AND f.data_aula = ?`,
+  [formacao_id, dataRef]
+);
+
+const frequenciaRegistrada =
+  Number(registroExistente[0]?.total || 0) > 0;
+
+  res.json({ ok: true, data: { inscritos, historico, frequenciaRegistrada } });
 });
 
 // GET /api/frequencias/minha?inscricao_id=X
@@ -46,6 +58,29 @@ router.get('/minha', auth('participante'), async (req, res) => {
 router.post('/', auth('admin', 'coordenador'), async (req, res) => {
   const { formacao_id, data_aula, presencas, todos_inscritos } = req.body;
   // presencas = { [inscricao_id]: { presente: bool, justificativa: string } }
+
+  if (!formacao_id || !data_aula) {
+  return res.status(400).json({
+    ok: false,
+    erro: 'Formação e data da aula são obrigatórias.'
+  });
+}
+
+const [registroExistente] = await db.query(
+  `SELECT COUNT(*) AS total
+   FROM frequencias f
+   JOIN inscricoes i ON i.id = f.inscricao_id
+   WHERE i.formacao_id = ?
+     AND f.data_aula = ?`,
+  [formacao_id, data_aula]
+);
+
+if (Number(registroExistente[0]?.total || 0) > 0) {
+  return res.status(409).json({
+    ok: false,
+    erro: 'A frequência desta formação já foi registrada para esta data.'
+  });
+}
 
   for (const [inscricaoId, dados] of Object.entries(presencas || {})) {
     await db.query(
