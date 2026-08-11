@@ -30,7 +30,7 @@ const menus = {
     { to: '/coordenador/propostas-formacao', icon: '📝', label: 'Propostas de Formação' },
     { to: '/coordenador/notificacoes', icon: '🔔', label: 'Notificações' },
     { to: '/coordenador/biblioteca-painel', icon: '📖', label: 'Biblioteca' },
-    { to: '/admin/inventario', icon: '📦', label: 'Inventário' }
+    { to: '/coordenador/inventario', icon: '📦', label: 'Inventário' }
   ],
 
   participante: [

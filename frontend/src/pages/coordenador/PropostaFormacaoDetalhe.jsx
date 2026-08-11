@@ -46,7 +46,7 @@ export default function PropostaFormacaoDetalhe() {
       );
 
       setObservacoes(
-        propostaRecebida?.observacoes || ''
+      propostaRecebida?.observacoes_coordenador || ''
       );
     } catch (error) {
       setErro(
@@ -98,17 +98,78 @@ export default function PropostaFormacaoDetalhe() {
   }
 
   function formatarSimNao(valor) {
-    if (
-      valor === true ||
-      valor === 1 ||
-      valor === '1' ||
-      String(valor).toLowerCase() === 'sim'
-    ) {
-      return 'Sim';
-    }
-
-    return 'Não';
+  if (
+    valor === true ||
+    valor === 1 ||
+    valor === '1' ||
+    ['sim', 'inicio', 'final'].includes(
+      String(valor).toLowerCase()
+    )
+  ) {
+    return 'Sim';
   }
+
+  return 'Não';
+}
+
+function formatarHorariosProposta(proposta) {
+  const horarios = [
+    {
+      nome: 'Manhã',
+      inicio: proposta.hora_inicio_manha,
+      fim: proposta.hora_fim_manha
+    },
+    {
+      nome: 'Tarde',
+      inicio: proposta.hora_inicio_tarde,
+      fim: proposta.hora_fim_tarde
+    },
+    {
+      nome: 'Noite',
+      inicio: proposta.hora_inicio_noite,
+      fim: proposta.hora_fim_noite
+    }
+  ]
+    .filter(item => item.inicio || item.fim)
+    .map(
+      item =>
+        `${item.nome}: ${formatarHorario(
+          item.inicio
+        )} às ${formatarHorario(item.fim)}`
+    );
+
+  if (horarios.length) {
+    return horarios.join(' | ');
+  }
+
+  if (proposta.hora_inicio || proposta.hora_fim) {
+    return `${formatarHorario(
+      proposta.hora_inicio
+    )} às ${formatarHorario(
+      proposta.hora_fim
+    )}`;
+  }
+
+  return 'Não informado';
+}
+
+function quantidadeEquipamento(nome) {
+  const quantidade = Number(
+    proposta?.equipamentos?.[nome] ?? 0
+  );
+
+  return Number.isFinite(quantidade)
+    ? quantidade
+    : 0;
+}
+
+function totalVagas() {
+  return (
+    Number(proposta?.qtd_manha || 0) +
+    Number(proposta?.qtd_tarde || 0) +
+    Number(proposta?.qtd_noite || 0)
+  );
+}
 
   async function confirmarProposta() {
   if (processando) {
@@ -390,42 +451,40 @@ async function recusarProposta() {
         />
 
         <InformacaoCard
-          icone={<Clock3 size={21} />}
-          titulo="Horário"
-          valor={`${formatarHorario(
-            proposta.horario_inicio
-          )} às ${formatarHorario(
-            proposta.horario_fim
-          )}`}
-        />
+  icone={<Clock3 size={21} />}
+  titulo="Horário"
+  valor={formatarHorariosProposta(proposta)}
+/>
 
-        <InformacaoCard
-          icone={<Clock3 size={21} />}
-          titulo="Carga horária"
-          valor={
-            proposta.carga_horaria
-              ? `${proposta.carga_horaria}h`
-              : 'Não informada'
-          }
-        />
+<InformacaoCard
+  icone={<Clock3 size={21} />}
+  titulo="Carga horária"
+  valor={
+    proposta.carga_horaria
+      ? `${proposta.carga_horaria}h`
+      : 'Não informada'
+  }
+/>
 
-        <InformacaoCard
-          icone={<MapPin size={21} />}
-          titulo="Local"
-          valor={formatarTexto(proposta.local)}
-        />
+<InformacaoCard
+  icone={<MapPin size={21} />}
+  titulo="Local"
+  valor={formatarTexto(proposta.espaco)}
+/>
 
-        <InformacaoCard
-          icone={<UserRound size={21} />}
-          titulo="Formador"
-          valor={formatarTexto(proposta.formador)}
-        />
+<InformacaoCard
+  icone={<UserRound size={21} />}
+  titulo="Responsável"
+  valor={formatarTexto(
+    proposta.responsavel_nome
+  )}
+/>
 
-        <InformacaoCard
-          icone={<UsersRound size={21} />}
-          titulo="Público-alvo"
-          valor={formatarTexto(proposta.publico_alvo)}
-        />
+<InformacaoCard
+  icone={<UsersRound size={21} />}
+  titulo="Público-alvo"
+  valor={formatarTexto(proposta.publico)}
+/>
       </div>
 
       <div className="card mb-24">
@@ -442,44 +501,48 @@ async function recusarProposta() {
         </h3>
 
         <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns:
-              'repeat(auto-fit, minmax(260px, 1fr))',
-            gap: '20px'
-          }}
-        >
-          <CampoTexto
-            titulo="Descrição"
-            valor={proposta.descricao}
-          />
+  style={{
+    display: 'grid',
+    gridTemplateColumns:
+      'repeat(auto-fit, minmax(260px, 1fr))',
+    gap: '20px'
+  }}
+>
+  <CampoTexto
+    titulo="Propósito"
+    valor={proposta.proposito}
+  />
 
-          <CampoTexto
-            titulo="Objetivo"
-            valor={proposta.objetivo}
-          />
+  <CampoTexto
+    titulo="Conteúdo programático"
+    valor={proposta.conteudo_programatico}
+  />
 
-          <CampoTexto
-            titulo="Conteúdo programático"
-            valor={proposta.conteudo_programatico}
-          />
+  <CampoTexto
+    titulo="Setor demandante"
+    valor={proposta.setor}
+  />
 
-          <CampoTexto
-            titulo="Metodologia"
-            valor={proposta.metodologia}
-          />
+  <CampoTexto
+    titulo="Público-alvo"
+    valor={proposta.publico}
+  />
 
-          <CampoTexto
-            titulo="Demandante"
-            valor={proposta.demandante}
-          />
+  <CampoTexto
+    titulo="Número de vagas"
+    valor={
+      Number(proposta.qtd_manha || 0) +
+      Number(proposta.qtd_tarde || 0) +
+      Number(proposta.qtd_noite || 0)
+    }
+  />
 
-          <CampoTexto
-            titulo="Número de vagas"
-            valor={proposta.numero_vagas}
-          />
-        </div>
-      </div>
+  <CampoTexto
+    titulo="Ônibus"
+    valor={formatarSimNao(proposta.onibus)}
+  />
+</div>
+</div>
 
       <div className="card mb-24">
         <h3
@@ -498,179 +561,335 @@ async function recusarProposta() {
             gap: '14px'
           }}
         >
-          <EquipamentoCard
-            icone={<Monitor size={21} />}
-            titulo="Datashow"
-            valor={formatarSimNao(proposta.datashow)}
-          />
+         <EquipamentoCard
+  icone={<Monitor size={21} />}
+  titulo="Datashow"
+  valor={formatarSimNao(
+    proposta.equipamentos?.datashow
+  )}
+/>
 
-          <EquipamentoCard
-            icone={<Volume2 size={21} />}
-            titulo="Som"
-            valor={
-              proposta.quantidade_som ??
-              proposta.qtd_som ??
-              proposta.som_quantidade ??
-              0
-            }
-          />
+<EquipamentoCard
+  icone={<Volume2 size={21} />}
+  titulo="Som"
+  valor={
+    Number(proposta.equipamentos?.som || 0)
+  }
+/>
 
-          <EquipamentoCard
-            icone={<Mic2 size={21} />}
-            titulo="Microfone"
-            valor={
-              proposta.quantidade_microfone ??
-              proposta.qtd_microfone ??
-              proposta.microfone_quantidade ??
-              0
-            }
-          />
+<EquipamentoCard
+  icone={<Mic2 size={21} />}
+  titulo="Microfone"
+  valor={
+    Number(
+      proposta.equipamentos?.microfone || 0
+    )
+  }
+/>
 
-          <EquipamentoCard
-            icone={<Coffee size={21} />}
-            titulo="Coffee Break"
-            valor={formatarSimNao(
-              proposta.coffee_break
-            )}
-          />
+<EquipamentoCard
+  icone={<Coffee size={21} />}
+  titulo="Coffee Break"
+  valor={formatarSimNao(proposta.coffee)}
+/>
         </div>
       </div>
 
       <div className="card mb-24">
-        <h3
+  <h3 style={{ marginTop: 0 }}>
+    Observações da equipe
+  </h3>
+
+  <p
+    style={{
+      whiteSpace: 'pre-wrap',
+      marginBottom: 0
+    }}
+  >
+    {proposta.observacoes ||
+      'Nenhuma observação informada.'}
+  </p>
+</div>
+
+      <div
+  className="card mb-24"
+  style={{
+    padding: 0,
+    overflow: 'hidden',
+    borderRadius: '18px',
+    border: '1px solid var(--laranja-borda)',
+    boxShadow: 'var(--sombra-dashboard)',
+    background: 'var(--branco)'
+  }}
+>
+  {/* Cabeçalho do card */}
+  <div
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '14px',
+      padding: '22px 26px',
+      background:
+        'linear-gradient(135deg, var(--laranja-extra-suave), var(--branco))',
+      borderBottom: '1px solid var(--laranja-borda)'
+    }}
+  >
+    <div
+      style={{
+        width: '46px',
+        height: '46px',
+        flexShrink: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: '14px',
+        color: 'var(--laranja)',
+        background: 'var(--laranja-suave)'
+      }}
+    >
+      <FileText size={23} />
+    </div>
+
+    <div>
+      <h3
+        style={{
+          margin: 0,
+          color: 'var(--cinza-900)',
+          fontSize: '1.15rem'
+        }}
+      >
+        Análise do coordenador
+      </h3>
+
+      <p
+        style={{
+          margin: '3px 0 0',
+          color: 'var(--cinza-600)',
+          fontSize: '.88rem'
+        }}
+      >
+        Registre observações e analise a proposta antes
+        de tomar uma decisão.
+      </p>
+    </div>
+  </div>
+
+  {/* Conteúdo do card */}
+  <div
+    style={{
+      padding: '26px'
+    }}
+  >
+    <div
+      className="form-grupo"
+      style={{
+        padding: '18px',
+        borderRadius: '14px',
+        border: '1px solid var(--cinza-200)',
+        background: 'var(--cinza-100)'
+      }}
+    >
+      <label
+        htmlFor="observacoes"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '7px',
+          marginBottom: '9px',
+          color: 'var(--cinza-800)',
+          fontWeight: '700'
+        }}
+      >
+        Observações
+
+        <span
           style={{
-            marginTop: 0
+            padding: '3px 9px',
+            borderRadius: '999px',
+            color: 'var(--cinza-600)',
+            background: 'var(--cinza-200)',
+            fontSize: '.72rem',
+            fontWeight: '600'
           }}
         >
-          Análise do coordenador
-        </h3>
+          Opcional
+        </span>
+      </label>
 
-        <div className="form-grupo">
-          <label htmlFor="observacoes">
-            OBS:
-            <span
-              style={{
-                marginLeft: '5px',
-                color: 'var(--cinza-500)',
-                fontSize: '.78rem',
-                fontWeight: '400'
-              }}
-            >
-              preenchimento opcional
-            </span>
-          </label>
+      <textarea
+        id="observacoes"
+        className="input"
+        rows="5"
+        value={observacoes}
+        onChange={(event) =>
+          setObservacoes(event.target.value)
+        }
+        placeholder="Digite uma observação para a equipe responsável pela proposta."
+        disabled={!pendente || processando}
+        style={{
+          width: '100%',
+          minHeight: '140px',
+          padding: '14px 16px',
+          resize: 'vertical',
+          borderRadius: '12px',
+          border: '1px solid var(--cinza-300)',
+          background: !pendente
+            ? 'var(--cinza-200)'
+            : 'var(--branco)',
+          color: 'var(--cinza-800)',
+          lineHeight: '1.5',
+          boxSizing: 'border-box'
+        }}
+      />
+    </div>
 
-          <textarea
-            id="observacoes"
-            className="input"
-            rows="5"
-            value={observacoes}
-            onChange={(event) =>
-              setObservacoes(event.target.value)
-            }
-            placeholder="Digite uma observação para a equipe responsável pela proposta."
-            disabled={!pendente || processando}
-            style={{
-              resize: 'vertical',
-              minHeight: '120px'
-            }}
-          />
-        </div>
+    {status === 'recusada' && (
+      <div
+        className="form-grupo"
+        style={{
+          marginTop: '20px',
+          padding: '18px',
+          borderRadius: '14px',
+          border: '1px solid var(--perigo-bg)',
+          background: '#fff8f8'
+        }}
+      >
+        <label
+          htmlFor="justificativa_recusa_visualizacao"
+          style={{
+            display: 'block',
+            marginBottom: '9px',
+            color: 'var(--perigo-texto)',
+            fontWeight: '700'
+          }}
+        >
+          Justificativa da recusa
+        </label>
 
-        {status === 'recusada' && (
-          <div
-            className="form-grupo"
-            style={{
-              marginTop: '18px'
-            }}
-          >
-            <label htmlFor="justificativa_recusa_visualizacao">
-              Justificativa da recusa
-            </label>
-
-            <textarea
-              id="justificativa_recusa_visualizacao"
-              className="input"
-              rows="4"
-              value={
-                proposta.justificativa_recusa || ''
-              }
-              disabled
-              style={{
-                resize: 'vertical'
-              }}
-            />
-          </div>
-        )}
-
-        {pendente && (
-          <div
-            className="form-grupo"
-            style={{
-              marginTop: '18px'
-            }}
-          >
-            <label htmlFor="justificativa_recusa">
-              Justificativa para recusa
-            </label>
-
-            <textarea
-              id="justificativa_recusa"
-              className="input"
-              rows="4"
-              value={justificativaRecusa}
-              onChange={(event) =>
-                setJustificativaRecusa(
-                  event.target.value
-                )
-              }
-              placeholder="Preencha este campo somente caso a proposta seja recusada."
-              disabled={processando}
-              style={{
-                resize: 'vertical'
-              }}
-            />
-          </div>
-        )}
-
-        {pendente && (
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'flex-end',
-              gap: '12px',
-              marginTop: '22px',
-              flexWrap: 'wrap'
-            }}
-          >
-            <button
-              type="button"
-              className="btn btn-perigo"
-              onClick={recusarProposta}
-              disabled={processando}
-            >
-              <XCircle size={18} />
-
-              {processando
-                ? 'Processando...'
-                : 'Recusar proposta'}
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-primario"
-              onClick={confirmarProposta}
-              disabled={processando}
-            >
-              <CheckCircle2 size={18} />
-
-              {processando
-                ? 'Processando...'
-                : 'Confirmar proposta'}
-            </button>
-          </div>
-        )}
+        <textarea
+          id="justificativa_recusa_visualizacao"
+          className="input"
+          rows="4"
+          value={
+            proposta.justificativa_recusa || ''
+          }
+          disabled
+          style={{
+            width: '100%',
+            minHeight: '110px',
+            padding: '14px 16px',
+            resize: 'vertical',
+            borderRadius: '12px',
+            border: '1px solid var(--cinza-300)',
+            background: 'var(--branco)',
+            boxSizing: 'border-box'
+          }}
+        />
       </div>
+    )}
+
+    {pendente && (
+      <div
+        className="form-grupo"
+        style={{
+          marginTop: '20px',
+          padding: '18px',
+          borderRadius: '14px',
+          border: '1px solid var(--cinza-200)',
+          background: 'var(--branco)'
+        }}
+      >
+        <label
+          htmlFor="justificativa_recusa"
+          style={{
+            display: 'block',
+            marginBottom: '5px',
+            color: 'var(--cinza-800)',
+            fontWeight: '700'
+          }}
+        >
+          Justificativa para recusa
+        </label>
+
+        <p
+          style={{
+            margin: '0 0 10px',
+            color: 'var(--cinza-600)',
+            fontSize: '.82rem'
+          }}
+        >
+          Preencha somente quando a proposta precisar
+          ser recusada.
+        </p>
+
+        <textarea
+          id="justificativa_recusa"
+          className="input"
+          rows="4"
+          value={justificativaRecusa}
+          onChange={(event) =>
+            setJustificativaRecusa(
+              event.target.value
+            )
+          }
+          placeholder="Informe o motivo da recusa."
+          disabled={processando}
+          style={{
+            width: '100%',
+            minHeight: '110px',
+            padding: '14px 16px',
+            resize: 'vertical',
+            borderRadius: '12px',
+            border: '1px solid var(--cinza-300)',
+            background: 'var(--branco)',
+            boxSizing: 'border-box'
+          }}
+        />
+      </div>
+    )}
+
+    {pendente && (
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          gap: '12px',
+          marginTop: '24px',
+          paddingTop: '22px',
+          flexWrap: 'wrap',
+          borderTop: '1px solid var(--cinza-200)'
+        }}
+      >
+        <button
+          type="button"
+          className="btn btn-perigo"
+          onClick={recusarProposta}
+          disabled={processando}
+        >
+          <XCircle size={18} />
+
+          {processando
+            ? 'Processando...'
+            : 'Recusar proposta'}
+        </button>
+
+        <button
+          type="button"
+          className="btn btn-primario"
+          onClick={confirmarProposta}
+          disabled={processando}
+        >
+          <CheckCircle2 size={18} />
+
+          {processando
+            ? 'Processando...'
+            : 'Confirmar proposta'}
+        </button>
+      </div>
+    )}
+  </div>
+</div>
     </PainelLayout>
   );
 }

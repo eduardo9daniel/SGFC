@@ -1,6 +1,9 @@
 const router = require('express').Router();
 const db = require('../config/db');
 const auth = require('../middleware/auth');
+const {
+  verificarConflitoEspaco
+} = require('../utils/verificarConflitoEspaco');
 
 const STATUS_VALIDOS = [
   'aberta',
@@ -934,6 +937,41 @@ router.post(
         });
       }
 
+      const conflito =
+  await verificarConflitoEspaco(
+    db,
+    {
+      espaco:
+        dados.local,
+
+      dataInicio:
+        dados.dataInicio,
+
+      dataFim:
+        dados.dataFim,
+
+      repete:
+        dados.repete,
+
+      outrasDatas:
+        dados.outrasDatas,
+
+      turnos:
+        dados.turnos,
+
+      status:
+        dados.status
+    }
+  );
+
+if (conflito) {
+  return res.status(409).json({
+    ok: false,
+    erro: conflito.mensagem,
+    conflito
+  });
+}
+
       const horario =
         montarHorarioResumo(dados);
 
@@ -1097,6 +1135,46 @@ router.put(
             'Formação não encontrada.'
         });
       }
+
+      const conflito =
+  await verificarConflitoEspaco(
+    conn,
+    {
+      espaco:
+        dados.local,
+
+      dataInicio:
+        dados.dataInicio,
+
+      dataFim:
+        dados.dataFim,
+
+      repete:
+        dados.repete,
+
+      outrasDatas:
+        dados.outrasDatas,
+
+      turnos:
+        dados.turnos,
+
+      status:
+        dados.status,
+
+      ignorarFormacaoId:
+        req.params.id
+    }
+  );
+
+if (conflito) {
+  await conn.rollback();
+
+  return res.status(409).json({
+    ok: false,
+    erro: conflito.mensagem,
+    conflito
+  });
+}
 
       const [inscricoes] =
         await conn.query(

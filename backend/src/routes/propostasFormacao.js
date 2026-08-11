@@ -1,6 +1,9 @@
 const router = require('express').Router();
 const db = require('../config/db');
 const auth = require('../middleware/auth');
+const {
+  verificarConflitoEspaco
+} = require('../utils/verificarConflitoEspaco');
 
 const TURNOS_VALIDOS = ['manha', 'tarde', 'noite'];
 
@@ -623,6 +626,9 @@ router.patch(
     try {
       await conn.beginTransaction();
 
+      const observacoesCoordenador =
+       String(req.body?.observacoes || '').trim() || null;
+
       const [rows] = await conn.query(
         `SELECT *
          FROM propostas_formacao
@@ -652,6 +658,55 @@ router.patch(
         });
       }
 
+      const conflito =
+  await verificarConflitoEspaco(
+    conn,
+    {
+      espaco:
+        proposta.espaco,
+
+      dataInicio:
+        proposta.data_encontro,
+
+      dataFim:
+        proposta.data_fim ||
+        proposta.data_encontro,
+
+      repete:
+        proposta.repete ||
+        'nao',
+
+      outrasDatas:
+        proposta.outras_datas,
+
+      turnos:
+        proposta.turnos,
+
+      status:
+        'aberta'
+    }
+  );
+
+if (conflito) {
+  await conn.rollback();
+
+  return res.status(409).json({
+    ok: false,
+    erro: conflito.mensagem
+  });
+}
+
+      const observacoesSalvas =
+  Object.prototype.hasOwnProperty.call(
+    req.body || {},
+    'observacoes'
+  )
+    ? String(
+        req.body.observacoes || ''
+      ).trim() || null
+    : proposta.observacoes || null;
+
+     
       const totalVagas =
         Number(proposta.qtd_manha || 0) +
         Number(proposta.qtd_tarde || 0) +
@@ -785,25 +840,27 @@ router.patch(
 
             proposta.convidados_especiais ||
               null,
-
-            proposta.observacoes || null
+            observacoesCoordenador ||
+            observacoesSalvas
           ]
         );
 
       await conn.query(
-        `UPDATE propostas_formacao
-         SET
-           status = 'confirmada',
-           decidido_por = ?,
-           decidido_em = NOW(),
-           formacao_id = ?
-         WHERE id = ?`,
-        [
-          req.user.id,
-          formacaoInsert.insertId,
-          req.params.id
-        ]
-      );
+  `UPDATE propostas_formacao
+   SET
+     status = 'confirmada',
+     observacoes_coordenador = ?,
+     decidido_por = ?,
+     decidido_em = NOW(),
+     formacao_id = ?
+   WHERE id = ?`,
+  [
+    observacoesCoordenador,
+    req.user.id,
+    formacaoInsert.insertId,
+    req.params.id
+  ]
+);
 
       await criarNotificacao(conn, {
         usuario_id: proposta.equipe_id,
@@ -844,7 +901,10 @@ router.patch(
     try {
       await conn.beginTransaction();
 
-      const { justificativa } = req.body;
+      const { justificativa, observacoes } = req.body;
+
+  const observacoesCoordenador =
+  String(observacoes || '').trim() || null;
 
       if (
         !justificativa ||
@@ -888,20 +948,32 @@ router.patch(
         });
       }
 
+      const observacoesSalvas =
+  Object.prototype.hasOwnProperty.call(
+    req.body || {},
+    'observacoes'
+  )
+    ? String(
+        req.body.observacoes || ''
+      ).trim() || null
+    : proposta.observacoes || null;
+
       await conn.query(
-        `UPDATE propostas_formacao
-         SET
-           status = 'recusada',
-           justificativa_recusa = ?,
-           decidido_por = ?,
-           decidido_em = NOW()
-         WHERE id = ?`,
-        [
-          justificativa.trim(),
-          req.user.id,
-          req.params.id
-        ]
-      );
+  `UPDATE propostas_formacao
+   SET
+     status = 'recusada',
+     justificativa_recusa = ?,
+     observacoes_coordenador = ?,
+     decidido_por = ?,
+     decidido_em = NOW()
+   WHERE id = ?`,
+  [
+    justificativa.trim(),
+    observacoesCoordenador,
+    req.user.id,
+    req.params.id
+  ]
+);
 
       await criarNotificacao(conn, {
         usuario_id: proposta.equipe_id,

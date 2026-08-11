@@ -85,7 +85,7 @@ export default function MinhasPropostas() {
                         overflowWrap: 'anywhere'
                       }}
                     >
-                      {proposta.observacoes || '—'}
+                      {proposta.observacoes_coordenador || '—'}
                     </div>
                   </td>
 

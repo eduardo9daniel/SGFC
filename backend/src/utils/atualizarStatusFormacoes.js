@@ -1,8 +1,10 @@
 const db = require('../config/db');
 
 const INTERVALO_PADRAO_MS = 60 * 1000;
+
 const FUSO_HORARIO =
-  process.env.APP_TIMEZONE || 'America/Sao_Paulo';
+  process.env.APP_TIMEZONE ||
+  'America/Sao_Paulo';
 
 const TURNOS_VALIDOS = [
   'manha',
@@ -14,38 +16,46 @@ const TURNOS_VALIDOS = [
  * Retorna a data e a hora atuais no formato:
  * YYYY-MM-DD HH:mm:ss
  *
- * O horário considerado é o de Niterói/Rio de Janeiro.
+ * O horário considerado é o de
+ * Niterói/Rio de Janeiro.
  */
 function obterDataHoraAtual() {
-  const partes = new Intl.DateTimeFormat(
-    'en-US',
-    {
-      timeZone: FUSO_HORARIO,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hourCycle: 'h23'
-    }
-  ).formatToParts(new Date());
+  const partes =
+    new Intl.DateTimeFormat(
+      'en-US',
+      {
+        timeZone: FUSO_HORARIO,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hourCycle: 'h23'
+      }
+    ).formatToParts(new Date());
 
-  const valores = Object.fromEntries(
-    partes.map((parte) => [
-      parte.type,
-      parte.value
-    ])
-  );
+  const valores =
+    Object.fromEntries(
+      partes.map((parte) => [
+        parte.type,
+        parte.value
+      ])
+    );
 
   return (
-    `${valores.year}-${valores.month}-${valores.day} ` +
-    `${valores.hour}:${valores.minute}:${valores.second}`
+    `${valores.year}-` +
+    `${valores.month}-` +
+    `${valores.day} ` +
+    `${valores.hour}:` +
+    `${valores.minute}:` +
+    `${valores.second}`
   );
 }
 
 /**
- * Converte o campo turnos do banco em uma lista.
+ * Converte o campo turnos do banco
+ * em uma lista.
  */
 function lerTurnos(valor) {
   if (Array.isArray(valor)) {
@@ -59,13 +69,16 @@ function lerTurnos(valor) {
   }
 
   try {
-    const turnos = JSON.parse(
-      String(valor)
-    );
+    const turnos =
+      JSON.parse(
+        String(valor)
+      );
 
     return Array.isArray(turnos)
       ? turnos.filter((turno) =>
-          TURNOS_VALIDOS.includes(turno)
+          TURNOS_VALIDOS.includes(
+            turno
+          )
         )
       : [];
   } catch {
@@ -74,22 +87,99 @@ function lerTurnos(valor) {
 }
 
 /**
- * Descobre o primeiro horário de início,
- * o último horário de encerramento e os
- * períodos individuais de cada turno.
- *
- * Exemplo:
- *
- * Manhã: 08:00 até 12:00
- * Tarde: 14:00 até 17:00
- *
- * Início considerado: 08:00
- * Encerramento considerado: 17:00
- *
- * O intervalo entre 12:00 e 14:00 não será
- * considerado como formação em andamento.
+ * Converte datas do banco ou
+ * do formulário para YYYY-MM-DD.
  */
-function obterPeriodoDaFormacao(formacao) {
+function normalizarData(valor) {
+  if (!valor) {
+    return null;
+  }
+
+  if (
+    valor instanceof Date &&
+    !Number.isNaN(valor.getTime())
+  ) {
+    const ano =
+      valor.getFullYear();
+
+    const mes =
+      String(
+        valor.getMonth() + 1
+      ).padStart(2, '0');
+
+    const dia =
+      String(
+        valor.getDate()
+      ).padStart(2, '0');
+
+    return `${ano}-${mes}-${dia}`;
+  }
+
+  const texto =
+    String(valor).trim();
+
+  if (
+    /^\d{4}-\d{2}-\d{2}/.test(
+      texto
+    )
+  ) {
+    return texto.slice(0, 10);
+  }
+
+  const brasileira =
+    texto.match(
+      /^(\d{2})\/(\d{2})\/(\d{4})$/
+    );
+
+  if (brasileira) {
+    return (
+      `${brasileira[3]}-` +
+      `${brasileira[2]}-` +
+      `${brasileira[1]}`
+    );
+  }
+
+  return null;
+}
+
+/**
+ * Converte outras_datas em uma
+ * lista de datas válidas e sem
+ * duplicidade.
+ */
+function extrairOutrasDatas(valor) {
+  if (!valor) {
+    return [];
+  }
+
+  return [
+    ...new Set(
+      String(valor)
+        .split(/[;,\n|]+/)
+        .map((parte) =>
+          normalizarData(
+            parte.trim()
+          )
+        )
+        .filter(Boolean)
+    )
+  ];
+}
+
+/**
+ * Descobre:
+ *
+ * - primeiro horário;
+ * - último horário;
+ * - períodos dos turnos;
+ * - data inicial principal;
+ * - data final principal;
+ * - datas adicionais;
+ * - última data real da formação.
+ */
+function obterPeriodoDaFormacao(
+  formacao
+) {
   const horarios = {
     manha: {
       inicio:
@@ -117,12 +207,14 @@ function obterPeriodoDaFormacao(formacao) {
   };
 
   const turnosCadastrados =
-    lerTurnos(formacao.turnos);
+    lerTurnos(
+      formacao.turnos
+    );
 
   /*
-   * Caso o registro seja antigo e não possua
-   * o campo turnos preenchido, considera todos
-   * os horários que estiverem disponíveis.
+   * Caso o registro seja antigo e não
+   * possua turnos cadastrados, verifica
+   * todos os horários disponíveis.
    */
   const turnosConsiderados =
     turnosCadastrados.length
@@ -131,16 +223,18 @@ function obterPeriodoDaFormacao(formacao) {
 
   /*
    * Mantém apenas turnos que possuem
-   * horário inicial e final válidos.
+   * início e fim válidos.
    */
   const periodosTurnos =
     turnosConsiderados
       .map((turno) => ({
         inicio:
-          horarios[turno]?.inicio,
+          horarios[turno]
+            ?.inicio,
 
         fim:
-          horarios[turno]?.fim
+          horarios[turno]
+            ?.fim
       }))
       .filter(
         (periodo) =>
@@ -151,16 +245,19 @@ function obterPeriodoDaFormacao(formacao) {
       );
 
   /*
-   * Caso uma formação antiga não possua horário,
-   * considera o início e o final do dia.
+   * Formação antiga sem horários:
+   * considera o dia inteiro.
    */
   const periodosConsiderados =
     periodosTurnos.length
       ? periodosTurnos
       : [
           {
-            inicio: '00:00:00',
-            fim: '23:59:59'
+            inicio:
+              '00:00:00',
+
+            fim:
+              '23:59:59'
           }
         ];
 
@@ -186,35 +283,121 @@ function obterPeriodoDaFormacao(formacao) {
       horariosFim.length - 1
     ];
 
-  const dataInicio =
-    formacao.data_inicio;
+  const dataInicioPrincipal =
+    normalizarData(
+      formacao.data_inicio
+    );
 
-  const dataFimOriginal =
-    formacao.data_fim ||
-    dataInicio;
+  if (!dataInicioPrincipal) {
+    return null;
+  }
+
+  const dataFimInformada =
+    normalizarData(
+      formacao.data_fim
+    ) ||
+    dataInicioPrincipal;
 
   /*
-   * Evita erro caso exista algum registro antigo
-   * com data final anterior à data inicial.
+   * Protege registros antigos com
+   * data final anterior à inicial.
    */
-  const dataFim =
-    dataFimOriginal < dataInicio
-      ? dataInicio
-      : dataFimOriginal;
+  const dataFimPrincipal =
+    dataFimInformada <
+    dataInicioPrincipal
+      ? dataInicioPrincipal
+      : dataFimInformada;
+
+  /*
+   * Datas adicionais somente fazem
+   * parte da formação quando repete
+   * estiver marcado como sim.
+   */
+  const outrasDatas =
+    formacao.repete === 'sim'
+      ? extrairOutrasDatas(
+          formacao.outras_datas
+        )
+      : [];
+
+  /*
+   * Junta as datas para descobrir
+   * o primeiro e o último encontro
+   * real da formação.
+   */
+  const datasConsideradas = [
+    dataInicioPrincipal,
+    dataFimPrincipal,
+    ...outrasDatas
+  ]
+    .filter(Boolean)
+    .sort();
+
+  const dataInicio =
+    datasConsideradas[0] ||
+    dataInicioPrincipal;
+
+  const ultimaData =
+    datasConsideradas[
+      datasConsideradas.length - 1
+    ] ||
+    dataFimPrincipal;
 
   return {
+    dataInicioPrincipal,
+    dataFimPrincipal,
+
     dataInicio,
-    dataFim,
+
+    dataFim:
+      dataFimPrincipal,
+
+    ultimaData,
+
+    outrasDatas,
+
     primeiroHorario,
     ultimoHorario,
+
     periodosTurnos:
       periodosConsiderados
   };
 }
 
 /**
- * Verifica se o horário atual está dentro
- * de algum turno cadastrado na formação.
+ * Verifica se hoje é realmente uma
+ * data de encontro da formação.
+ *
+ * O período principal compreende
+ * data_inicio até data_fim.
+ *
+ * outras_datas são encontros
+ * adicionais.
+ */
+function ehDataDeEncontro(
+  dataAtual,
+  periodo
+) {
+  const dentroDoPeriodoPrincipal =
+    dataAtual >=
+      periodo.dataInicioPrincipal &&
+    dataAtual <=
+      periodo.dataFimPrincipal;
+
+  const ehDataAdicional =
+    periodo.outrasDatas.includes(
+      dataAtual
+    );
+
+  return (
+    dentroDoPeriodoPrincipal ||
+    ehDataAdicional
+  );
+}
+
+/**
+ * Verifica se o horário atual está
+ * dentro de algum turno cadastrado.
  */
 function estaDentroDeUmTurno(
   horaAtual,
@@ -222,14 +405,16 @@ function estaDentroDeUmTurno(
 ) {
   return periodosTurnos.some(
     (periodo) =>
-      horaAtual >= periodo.inicio &&
-      horaAtual < periodo.fim
+      horaAtual >=
+        periodo.inicio &&
+      horaAtual <
+        periodo.fim
   );
 }
 
 /**
- * Atualiza um grupo de formações para
- * um determinado status.
+ * Atualiza um grupo de formações
+ * para determinado status.
  */
 async function atualizarGrupo(
   status,
@@ -239,20 +424,26 @@ async function atualizarGrupo(
     return 0;
   }
 
-  const marcadores = ids
-    .map(() => '?')
-    .join(', ');
+  const marcadores =
+    ids
+      .map(() => '?')
+      .join(', ');
 
   const [resultado] =
     await db.query(
       `
         UPDATE formacoes
+
         SET status = ?
-        WHERE id IN (${marcadores})
-          AND status IN (
-            'aberta',
-            'andamento'
-          )
+
+        WHERE id IN (
+          ${marcadores}
+        )
+
+        AND status IN (
+          'aberta',
+          'andamento'
+        )
       `,
       [
         status,
@@ -261,33 +452,40 @@ async function atualizarGrupo(
     );
 
   return Number(
-    resultado.affectedRows || 0
+    resultado.affectedRows ||
+      0
   );
 }
 
 /**
- * Atualiza automaticamente o status das formações.
+ * Atualiza automaticamente o status
+ * das formações.
  *
- * Regras:
+ * REGRAS
  *
- * 1. Antes da data e do horário inicial:
+ * 1. Antes da primeira data:
  *    aberta.
  *
- * 2. Durante um dos turnos cadastrados:
+ * 2. Durante um turno cadastrado em
+ *    uma data real de encontro:
  *    andamento.
  *
- * 3. Nos intervalos entre turnos ou entre
- *    os dias da formação:
+ * 3. Entre turnos:
  *    aberta.
  *
- * 4. A partir do último horário de encerramento
- *    da última data:
+ * 4. Entre uma data principal e uma
+ *    outra_data futura:
+ *    aberta.
+ *
+ * 5. Depois do último horário da
+ *    última data real:
  *    concluída.
  *
- * 5. Formações canceladas ou já concluídas
- *    não são alteradas.
+ * 6. Formações canceladas ou já
+ *    concluídas não são alteradas.
  */
-async function atualizarStatusFormacoesAutomaticamente() {
+async function
+atualizarStatusFormacoesAutomaticamente() {
   const agora =
     obterDataHoraAtual();
 
@@ -315,6 +513,10 @@ async function atualizarStatusFormacoesAutomaticamente() {
             ),
             '%Y-%m-%d'
           ) AS data_fim,
+
+          repete,
+
+          outras_datas,
 
           turnos,
 
@@ -366,13 +568,25 @@ async function atualizarStatusFormacoesAutomaticamente() {
   for (
     const formacao of formacoes
   ) {
-    if (!formacao.data_inicio) {
+    if (
+      !formacao.data_inicio
+    ) {
       continue;
     }
 
     const periodo =
       obterPeriodoDaFormacao(
         formacao
+      );
+
+    if (!periodo) {
+      continue;
+    }
+
+    const emDataDeEncontro =
+      ehDataDeEncontro(
+        dataAtual,
+        periodo
       );
 
     const emHorarioDeTurno =
@@ -384,60 +598,74 @@ async function atualizarStatusFormacoesAutomaticamente() {
     let novoStatus;
 
     /*
-     * Ainda não chegou à primeira data.
+     * Ainda não chegou à primeira
+     * data real da formação.
      */
     if (
-      dataAtual < periodo.dataInicio
+      dataAtual <
+      periodo.dataInicio
     ) {
-      novoStatus = 'aberta';
+      novoStatus =
+        'aberta';
     }
 
     /*
-     * A última data já passou.
+     * Já passou da última data real,
+     * incluindo outras_datas.
      */
     else if (
-      dataAtual > periodo.dataFim
+      dataAtual >
+      periodo.ultimaData
     ) {
-      novoStatus = 'concluida';
+      novoStatus =
+        'concluida';
     }
 
     /*
-     * No último dia, depois do último
-     * horário, a formação é concluída.
+     * Estamos na última data real e
+     * o último turno já terminou.
      */
     else if (
-      dataAtual === periodo.dataFim &&
-      horaAtual >= periodo.ultimoHorario
+      dataAtual ===
+        periodo.ultimaData &&
+      horaAtual >=
+        periodo.ultimoHorario
     ) {
-      novoStatus = 'concluida';
+      novoStatus =
+        'concluida';
     }
 
     /*
-     * Durante qualquer dia compreendido
-     * entre a data inicial e a data final,
-     * fica em andamento somente dentro
-     * de um dos turnos cadastrados.
+     * É uma data real de encontro
+     * e estamos dentro de um dos
+     * turnos cadastrados.
      */
     else if (
+      emDataDeEncontro &&
       emHorarioDeTurno
     ) {
-      novoStatus = 'andamento';
+      novoStatus =
+        'andamento';
     }
 
     /*
-     * Antes do horário diário, no intervalo
-     * entre turnos, depois do encontro de um
-     * dia intermediário ou durante a madrugada.
+     * Antes do horário inicial,
+     * entre turnos, após encontro
+     * intermediário ou entre datas
+     * repetidas.
      */
     else {
-      novoStatus = 'aberta';
+      novoStatus =
+        'aberta';
     }
 
     if (
       novoStatus !==
       formacao.status
     ) {
-      grupos[novoStatus].push(
+      grupos[
+        novoStatus
+      ].push(
         formacao.id
       );
     }
@@ -447,22 +675,23 @@ async function atualizarStatusFormacoesAutomaticamente() {
     totalAbertas,
     totalAndamento,
     totalConcluidas
-  ] = await Promise.all([
-    atualizarGrupo(
-      'aberta',
-      grupos.aberta
-    ),
+  ] =
+    await Promise.all([
+      atualizarGrupo(
+        'aberta',
+        grupos.aberta
+      ),
 
-    atualizarGrupo(
-      'andamento',
-      grupos.andamento
-    ),
+      atualizarGrupo(
+        'andamento',
+        grupos.andamento
+      ),
 
-    atualizarGrupo(
-      'concluida',
-      grupos.concluida
-    )
-  ]);
+      atualizarGrupo(
+        'concluida',
+        grupos.concluida
+      )
+    ]);
 
   return {
     aberta:
@@ -484,56 +713,64 @@ async function atualizarStatusFormacoesAutomaticamente() {
 /**
  * Inicia a verificação automática.
  *
- * Executa imediatamente quando o servidor inicia
- * e depois repete a verificação a cada minuto.
+ * Executa uma vez imediatamente
+ * quando o servidor inicia e depois
+ * repete a cada minuto.
  */
-function iniciarAtualizacaoAutomaticaFormacoes(
+function
+iniciarAtualizacaoAutomaticaFormacoes(
   intervaloMs =
     INTERVALO_PADRAO_MS
 ) {
   let verificacaoEmAndamento =
     false;
 
-  const executar = async () => {
-    if (
-      verificacaoEmAndamento
-    ) {
-      return;
-    }
-
-    verificacaoEmAndamento =
-      true;
-
-    try {
-      const resultado =
-        await atualizarStatusFormacoesAutomaticamente();
-
+  const executar =
+    async () => {
       if (
-        resultado.total > 0
+        verificacaoEmAndamento
       ) {
-        console.log(
-          '✅ Status das formações atualizados automaticamente:',
-          resultado
-        );
+        return;
       }
-    } catch (erro) {
-      console.error(
-        '❌ Erro ao atualizar os status das formações:',
-        erro
-      );
-    } finally {
+
       verificacaoEmAndamento =
-        false;
-    }
-  };
+        true;
+
+      try {
+        const resultado =
+          await atualizarStatusFormacoesAutomaticamente();
+
+        if (
+          resultado.total >
+          0
+        ) {
+          console.log(
+            '✅ Status das formações ' +
+            'atualizados automaticamente:',
+            resultado
+          );
+        }
+      } catch (erro) {
+        console.error(
+          '❌ Erro ao atualizar ' +
+          'os status das formações:',
+          erro
+        );
+      } finally {
+        verificacaoEmAndamento =
+          false;
+      }
+    };
 
   /*
-   * Primeira verificação imediatamente.
+   * Primeira verificação
+   * imediatamente.
    */
   executar();
 
   /*
-   * Próximas verificações a cada minuto.
+   * Próximas verificações
+   * automaticamente.
    */
   const temporizador =
     setInterval(
@@ -541,6 +778,10 @@ function iniciarAtualizacaoAutomaticaFormacoes(
       intervaloMs
     );
 
+  /*
+   * Não impede o encerramento
+   * normal do processo Node.
+   */
   if (
     typeof temporizador.unref ===
     'function'
@@ -553,13 +794,5 @@ function iniciarAtualizacaoAutomaticaFormacoes(
 
 module.exports = {
   atualizarStatusFormacoesAutomaticamente,
-
-  /*
-   * Mantém compatibilidade com o nome
-   * utilizado atualmente em formacoes.js.
-   */
-  atualizarStatusFormacoesVencidas:
-    atualizarStatusFormacoesAutomaticamente,
-
   iniciarAtualizacaoAutomaticaFormacoes
 };
