@@ -57,6 +57,15 @@ export default function AdminFrequencia() {
 
   async function salvar(e) {
     e.preventDefault();
+
+    if (frequenciaRegistrada) {
+  toast(
+    'A frequência desta formação já foi registrada para esta data.',
+    'erro'
+  );
+  return;
+}
+
     try {
       await api.post('/frequencias', {
         formacao_id: formacaoSel,
@@ -156,6 +165,7 @@ export default function AdminFrequencia() {
                     <input type="text" placeholder="Justificativa (opcional)"
                       value={presencas[i.inscricao_id]?.justificativa||''}
                       onChange={e => setJustif(i.inscricao_id, e.target.value)}
+                      disabled={frequenciaRegistrada}
                       style={{ width:200, padding:'6px 10px', border:'1px solid var(--cinza-300)', borderRadius:8, fontSize:'.82rem', outline:'none' }} />
                   </div>
                 ))}

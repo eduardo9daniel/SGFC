@@ -57,7 +57,16 @@ export default function AdminFrequencia() {
 
   async function salvar(e) {
     e.preventDefault();
-    try {
+    
+    if (frequenciaRegistrada) {
+  toast(
+    'A frequência desta formação já foi registrada para esta data.',
+    'erro'
+  );
+  return;
+}
+    
+try {
       await api.post('/frequencias', {
         formacao_id: formacaoSel,
         data_aula: dataAula,

@@ -56,55 +56,170 @@ router.get('/minha', auth('participante'), async (req, res) => {
 
 // POST /api/frequencias — salvar lista de presença
 router.post('/', auth('admin', 'coordenador'), async (req, res) => {
-  const { formacao_id, data_aula, presencas, todos_inscritos } = req.body;
-  // presencas = { [inscricao_id]: { presente: bool, justificativa: string } }
+  const {
+    formacao_id,
+    data_aula,
+    presencas,
+    todos_inscritos
+  } = req.body;
 
   if (!formacao_id || !data_aula) {
-  return res.status(400).json({
-    ok: false,
-    erro: 'Formação e data da aula são obrigatórias.'
-  });
-}
-
-const [registroExistente] = await db.query(
-  `SELECT COUNT(*) AS total
-   FROM frequencias f
-   JOIN inscricoes i ON i.id = f.inscricao_id
-   WHERE i.formacao_id = ?
-     AND f.data_aula = ?`,
-  [formacao_id, data_aula]
-);
-
-if (Number(registroExistente[0]?.total || 0) > 0) {
-  return res.status(409).json({
-    ok: false,
-    erro: 'A frequência desta formação já foi registrada para esta data.'
-  });
-}
-
-  for (const [inscricaoId, dados] of Object.entries(presencas || {})) {
-    await db.query(
-      `INSERT INTO frequencias (inscricao_id, data_aula, presente, justificativa, registrado_por)
-       VALUES (?, ?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE presente = VALUES(presente), justificativa = VALUES(justificativa)`,
-      [inscricaoId, data_aula, dados.presente ? 1 : 0, dados.justificativa || '', req.user.id]
-    );
+    return res.status(400).json({
+      ok: false,
+      erro: 'Formação e data da aula são obrigatórias.'
+    });
   }
 
-  // Registrar ausências para os não marcados
-  const marcados = Object.keys(presencas || {}).map(Number);
-  for (const inscId of (todos_inscritos || [])) {
-    if (!marcados.includes(Number(inscId))) {
-      await db.query(
-        `INSERT INTO frequencias (inscricao_id, data_aula, presente, justificativa, registrado_por)
-         VALUES (?, ?, 0, '', ?)
-         ON DUPLICATE KEY UPDATE presente = 0`,
-        [inscId, data_aula, req.user.id]
+  const connection = await db.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    /*
+     * Bloqueia a formação durante a gravação.
+     * Isso impede duas chamadas simultâneas
+     * para a mesma formação.
+     */
+    const [formacoes] = await connection.query(
+      `SELECT id
+       FROM formacoes
+       WHERE id = ?
+       FOR UPDATE`,
+      [formacao_id]
+    );
+
+    if (formacoes.length === 0) {
+      await connection.rollback();
+
+      return res.status(404).json({
+        ok: false,
+        erro: 'Formação não encontrada.'
+      });
+    }
+
+    /*
+     * Verifica novamente dentro da transação.
+     */
+    const [registroExistente] = await connection.query(
+      `SELECT COUNT(*) AS total
+       FROM frequencias f
+       JOIN inscricoes i
+         ON i.id = f.inscricao_id
+       WHERE i.formacao_id = ?
+         AND f.data_aula = ?`,
+      [formacao_id, data_aula]
+    );
+
+    if (
+      Number(
+        registroExistente[0]?.total || 0
+      ) > 0
+    ) {
+      await connection.rollback();
+
+      return res.status(409).json({
+        ok: false,
+        erro:
+          'A frequência desta formação já foi registrada para esta data.'
+      });
+    }
+
+    /*
+     * Registra os participantes marcados.
+     *
+     * IMPORTANTE:
+     * não existe mais ON DUPLICATE KEY UPDATE.
+     */
+    for (
+      const [inscricaoId, dados]
+      of Object.entries(presencas || {})
+    ) {
+      await connection.query(
+        `INSERT INTO frequencias
+          (
+            inscricao_id,
+            data_aula,
+            presente,
+            justificativa,
+            registrado_por
+          )
+         VALUES (?, ?, ?, ?, ?)`,
+        [
+          inscricaoId,
+          data_aula,
+          dados.presente ? 1 : 0,
+          dados.justificativa || '',
+          req.user.id
+        ]
       );
     }
-  }
 
-  res.json({ ok: true });
+    /*
+     * Registra falta para quem não foi marcado.
+     */
+    const marcados =
+      Object.keys(presencas || {})
+        .map(Number);
+
+    for (
+      const inscId
+      of (todos_inscritos || [])
+    ) {
+      if (
+        !marcados.includes(
+          Number(inscId)
+        )
+      ) {
+        await connection.query(
+          `INSERT INTO frequencias
+            (
+              inscricao_id,
+              data_aula,
+              presente,
+              justificativa,
+              registrado_por
+            )
+           VALUES (?, ?, 0, '', ?)`,
+          [
+            inscId,
+            data_aula,
+            req.user.id
+          ]
+        );
+      }
+    }
+
+    await connection.commit();
+
+    return res.json({
+      ok: true
+    });
+
+  } catch (err) {
+    await connection.rollback();
+
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({
+        ok: false,
+        erro:
+          'A frequência desta formação já foi registrada para esta data.'
+      });
+    }
+
+    console.error(
+      '[FREQUENCIA][SALVAR]',
+      err
+    );
+
+    return res.status(500).json({
+      ok: false,
+      erro:
+        'Erro ao registrar frequência.'
+    });
+
+  } finally {
+    connection.release();
+  }
 });
 
 module.exports = router;
